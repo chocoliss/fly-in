@@ -2,9 +2,9 @@
 
 
 nb_drones: 4
-hub : 23
-start_hub: start 0 0
+start_hub : start 0 0
 hub: A 2 3 [zone=normal color=red max_drones=2] # normal zone
+hub: hello   3   3
 end_hub: end 10 10
 
 

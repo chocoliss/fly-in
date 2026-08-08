@@ -11,6 +11,7 @@ class Parse:
         self.lst = []
         self.lst2 = []
         self.zone_name = {}
+        self.meta_dic = {}
 
     def file_cleaner(self) -> int:
         if self.file_name != "config.txt":
@@ -36,13 +37,15 @@ class Parse:
             return 0
 
     def parse_arguments(self) -> int:
-        dic = {}
+        sflag = 0
+        eflag = 0
         try:
             for i in self.lst:
                 self.line_count += 1
                 if i == '':
                     continue
                 key, value = str(i).split(":", 1)
+                key = key.strip()
                 if self.key_count == 0 and key != "nb_drones":
                     raise ValueError("the number drones must be first")
                 if key.strip() not in ["nb_drones", "start_hub", "hub", "end_hub", "connection"]:
@@ -66,15 +69,18 @@ class Parse:
                 if key == 'end_hub':
                     self.end_hub(value)
                 if key == 'hub':
+                    if len(value.split()) < 3:
+                        raise ValueError(f"you missed a value the line should be : hub: name x y")
                     if len(value.split()) > 3:
                         try :
                             name, x, y, metadata = value.split(None, 3)
                         except ValueError:
                             raise ValueError("The hub must have: name x y [(optinnal) zone=... color=... max_drones=... ]")
                         else:
-                            self.meta_data(metadata,name)
-                    if self.hub(name, x, y) == 1:
-                        return 1
+                            self.meta_data_hubs(metadata,name)
+                    if len(value.split()) == 3:
+                            name, x, y = value.split()
+                    self.hub(name, x, y)
                 self.key_count += 1
                 self.keys.append(key)
                 self.values.append(value)
@@ -85,6 +91,7 @@ class Parse:
             print(self.zone_name)
             print("done")
             return 0
+
 
     def hub(self, name: str, x: str, y: str):
         if '-' in name:
@@ -138,8 +145,21 @@ class Parse:
             self.zone_name[name] = (x.strip(), y.strip())
             return
 
-    def meta_data(self, metadata: str, key : str):
-        ...
+    def meta_data_hubs(self, metadata: str, key : str):
+        meta = {}
+        x = metadata.strip()
+        if x[0] != '[' and x[-1] != ']':
+            raise ValueError(f"The metadata should be in '[key=value] not this {x}")
+        # TODO: add the count fuction for brackets []
+        x = x[1:-1]
+        for title in x.split():
+            name ,value  = title.split('=')
+            if name.strip() not in ["zone", "color", "max_drones"]:
+                raise ValueError(f"The key of the metadata you tipped {name} is not valid")
+            meta[name.strip()] = value.strip()
+        self.meta_dic[key.strip()] = meta
+        # print(self.meta_dic)
+        return
 
 if __name__ == "__main__":
     x = Parse("config.txt")
@@ -147,3 +167,12 @@ if __name__ == "__main__":
         exit(1)
     if x.parse_arguments() == 1:
         exit(1)
+
+    # dic = {}
+    # meta = {}
+    # for name, mdata in zip(key,metadata):
+    #     # dic[name] = meta[[key ,value for name.split('=') in metadata.split():]
+    #     for title in metadata.split():
+    #         key ,value  = title.split('=')
+    #         meta[key] = value
+    #     dic[name] = meta
