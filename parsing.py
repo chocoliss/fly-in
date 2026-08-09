@@ -1,4 +1,5 @@
 import typing
+from webcolors import name_to_rgb
 
 
 class Parse:
@@ -12,6 +13,8 @@ class Parse:
         self.lst2 = []
         self.zone_name = {}
         self.meta_dic = {}
+        self.connections = []
+        self.meta_connection_dic = {}
 
     def file_cleaner(self) -> int:
         if self.file_name != "config.txt":
@@ -44,8 +47,11 @@ class Parse:
                 self.line_count += 1
                 if i == '':
                     continue
+                if len(str(i).split(":", 1)) < 2:
+                    raise ValueError(f"you should write a 'key: values' form")
                 key, value = str(i).split(":", 1)
                 key = key.strip()
+                value = value.strip()
                 if self.key_count == 0 and key != "nb_drones":
                     raise ValueError("the number drones must be first")
                 if key.strip() not in ["nb_drones", "start_hub", "hub", "end_hub", "connection"]:
@@ -81,6 +87,19 @@ class Parse:
                     if len(value.split()) == 3:
                             name, x, y = value.split()
                     self.hub(name, x, y)
+                if key == 'connection':
+                    if len(value.split(None, 1)) > 2:
+                        raise ValueError(f"Wrote more than two arguments {value}.\nConnection: zone1-zone2 [metadata (optionnal)]")
+                    elif len(value.split(None, 1)) == 2:
+                        connection, metdata = value.split(None, 1)
+                        self.connection(connection)
+                        self.meta_data_connections(metdata)
+                    elif len(value.split(None, 1)) == 1:
+                        try:
+                            connection = value.strip()
+                        except ValueError:
+                            raise ValueError(f"The connection is not a string {connection}")
+                        self.connection(connection)
                 self.key_count += 1
                 self.keys.append(key)
                 self.values.append(value)
@@ -89,6 +108,9 @@ class Parse:
             return 1
         else:
             print(self.zone_name)
+            print(self.meta_dic)
+            print(self.meta_connection_dic)
+            print(self.connections)
             print("done")
             return 0
 
@@ -147,32 +169,120 @@ class Parse:
 
     def meta_data_hubs(self, metadata: str, key : str):
         meta = {}
+        meta_keys = []
         x = metadata.strip()
         if x[0] != '[' and x[-1] != ']':
-            raise ValueError(f"The metadata should be in '[key=value] not this {x}")
-        # TODO: add the count fuction for brackets []
-        x = x[1:-1]
+            raise ValueError(f"The metadata should be in '[key=value key=value ...]' not this {x}")
+        self.check_brackets(x)
+        x = x[1:-1].strip()
+        if x.strip() == '':
+            raise ValueError("The bracket of metadata should not be empty")
+        if len(x.split()) > 3 :
+            raise ValueError(f"You made a mistake in metadata keys as most three \nThe keys are: 'zone' 'color' 'max_drones'.")
         for title in x.split():
+            self.check_equal(title)
             name ,value  = title.split('=')
-            if name.strip() not in ["zone", "color", "max_drones"]:
-                raise ValueError(f"The key of the metadata you tipped {name} is not valid")
-            meta[name.strip()] = value.strip()
+            name = name.strip()
+            if name not in ["zone", "color", "max_drones"]:
+                raise ValueError(f"The key of the metadata you tipped {name} is not valid \nThe keys are: 'zone' 'color' 'max_drones'.")
+            if meta_keys.count("zone") > 1:
+                    raise ValueError("the key zone is duplicate")
+            if meta_keys.count("color") > 1 :
+                    raise ValueError("the key color is duplicate")
+            if meta_keys.count("max_drones") > 1 :
+                    raise ValueError("the key max_drones is duplicate")
+            if name == 'zone':
+                if value.strip() not in ["normal","restricted","priority","blocked"]:
+                    raise ValueError(f"The zone you written {value} is not a valid type the valid types are :['normal','restricted','priority','blocked']")
+            if name == 'color':
+                try:
+                    name_to_rgb(value.strip().lower())
+                except ValueError as error:
+                    raise ValueError(error)
+            if name == 'max_drones':
+                try:
+                    value = int(value)
+                except ValueError:
+                    raise ValueError(f"The value of 'max_drones' should be an integer")
+            meta_keys.append(name)
+            meta[name] = value
         self.meta_dic[key.strip()] = meta
-        # print(self.meta_dic)
+
+
+    def connection(self, value: str) -> None:
+        print(value)
+        value = value.strip()
+        self.check_dash(value)
+        if  2 > len(value.split('-')) >= 3:
+            raise ValueError(f"The connections must be between two zone names : zone1-zone2 .")
+        x1, y1 = value.split('-')
+        x1, y1 = x1.strip(), y1.strip()
+        self.check_zone_name(x1)
+        self.check_zone_name(y1)
+        if self.connections:
+            for connection in self.connections:
+                self.check_dash(connection)
+                x, y = connection.split('-')
+                x, y = x.strip(), y.strip()
+                print(f"{x}, {x1} ,{y}, {y1}")
+                if (x1 == x and y1 == y) or (x1 == y and y1 == x):
+                    raise ValueError(f"The connection {connection} is the same as {value}.\nThe connections should not be repeated.")
+        self.connections.append(value)
+
+
+    def meta_data_connections(self, metdata: str) -> None:
+        x = metdata.strip()
+        if x[0] != '[' and x[-1] != ']':
+            raise ValueError(f"The metadata should be in '[max_link_capacity=value]' not this {x}.")
+        self.check_brackets(x)
+        x = x[1:-1].strip()
+        if x.strip() == '':
+            raise ValueError("The bracket of metadata should not be empty")
+        if len(x.split()) > 1 :
+            raise ValueError(f"You made a mistake in metadata [max_link_capacity=value]in connection.")
+        self.check_equal(x)
+        name ,value  = x.split('=')
+        name = name.strip()
+        if name != 'max_link_capacity':
+            raise ValueError(f"The key of the metadata you tipped {name} is not valid. \nShould be 'max_link_capacity'")
+        try:
+            value = int(value)
+        except ValueError:
+            raise ValueError(f"The value of 'max_link_capacity' should be an integer")
+        self.meta_connection_dic[self.connections[-1]] = value
+
+
+    def check_dash(self, value: str):
+        if '-' not in value:
+            raise ValueError(f"No dash between connections '{value}'")
+        if '-' == value[0] or '-' == value[-1]:
+            raise ValueError(f"Dash should be between zone names no space between them : {value}\nzone1-zone2")
+
+
+    def check_brackets(self,sentance: str):
+        i = 0
+        for c in sentance[1:-1]:
+            if c == ']':
+               raise ValueError(f"The ] bracket should be one in the end you forgot this ']' in colone {i}")
+            if c == '[':
+                raise ValueError(f"you oppend the bracket two times in colone {i}")
+            i += 1
         return
 
+
+    def check_zone_name(self, name: str) -> None:
+        if name not in self.zone_name.keys():
+            raise ValueError(f"The name you've been given {name} has not been in any 'hub'.")
+
+
+    def  check_equal(self,title: str) -> None:
+        if '=' not in title:
+            raise ValueError(f"The word you wrote have no '=' to indicate of 'key=value' pair." )
+
+    
 if __name__ == "__main__":
     x = Parse("config.txt")
     if 1 == x.file_cleaner():
         exit(1)
     if x.parse_arguments() == 1:
         exit(1)
-
-    # dic = {}
-    # meta = {}
-    # for name, mdata in zip(key,metadata):
-    #     # dic[name] = meta[[key ,value for name.split('=') in metadata.split():]
-    #     for title in metadata.split():
-    #         key ,value  = title.split('=')
-    #         meta[key] = value
-    #     dic[name] = meta

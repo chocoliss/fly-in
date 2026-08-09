@@ -1,14 +1,13 @@
 
 
-
 nb_drones: 4
 start_hub : start 0 0
-hub: A 2 3 [zone=normal color=red max_drones=2] # normal zone
+hub: A 2 3 [  color=red  ] # normal zone
 hub: hello   3   3
 end_hub: end 10 10
 
-
-connection: start-A  [max_link_capacity=2]
+connection: start-A   [ max_link_capacity=2]
+connection: hello-start
 
 
 
