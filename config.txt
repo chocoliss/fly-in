@@ -1,13 +1,14 @@
+#dsds
 
+nb_drones: 10
 
-nb_drones: 4
-start_hub : start 0 0
-hub: A 2 3 [  color=red  ] # normal zone
-hub: hello   3   3
-end_hub: end 10 10
+start_hub : start 0 0 [max_drones=3 color=yellow zone=normal]
+hub: A 2 3 [max_drones=3 color=yellow zone=normal] # normal zone
+hub: hello   3   3  [max_drones=3 color=yellow zone=normal]
+end_hub: end 10 10 [max_drones=3 color=yellow zone=normal]
 
-connection: start-A   [ max_link_capacity=2]
-connection: hello-start
+connection: start--A   [ max_link_capacity=2]
+connection: A-hello
 
 
 

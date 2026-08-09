@@ -23,8 +23,6 @@ class Parse:
         try:
             with open(self.file_name,'r') as f:
                 for ligne in f:
-                    if ligne[0] == '#':
-                        continue
                     self.lst2.append(ligne.strip())
                 for word in self.lst2:
                     i = 0
@@ -42,39 +40,51 @@ class Parse:
     def parse_arguments(self) -> int:
         sflag = 0
         eflag = 0
+        nflag = 0
+        space = 0
         try:
             for i in self.lst:
                 self.line_count += 1
                 if i == '':
+                    space += 1
+                    if space == len(self.lst):
+                        raise ValueError(f"the file is empty")
                     continue
                 if len(str(i).split(":", 1)) < 2:
                     raise ValueError(f"you should write a 'key: values' form")
                 key, value = str(i).split(":", 1)
                 key = key.strip()
                 value = value.strip()
-                if self.key_count == 0 and key != "nb_drones":
-                    raise ValueError("the number drones must be first")
                 if key.strip() not in ["nb_drones", "start_hub", "hub", "end_hub", "connection"]:
                     raise ValueError("the key you tipped is not correct.")
-                if self.keys.count("nb_dornes") > 1:
-                    raise ValueError("the key nb_drones is duplicate")
-                if self.keys.count("start_hub") > 1 :
-                    raise ValueError("the key start_hub is duplicate")
-                if self.keys.count("end_hub") > 1 :
-                    raise ValueError("the key end_hub is duplicate")
+                if self.key_count == 0 and key != "nb_drones":
+                    raise ValueError("the number drones must be first")
                 if key == "nb_drones":
+                    if nflag > 0:
+                        raise ValueError("the key nb_drones is duplicate.")
                     try:
                         int_value = int(value)
                     except ValueError:
-                        raise ValueError(f"'{value}' is not an integer")
+                        raise ValueError(f"'{value}' is not an integer.")
                     else:
                         if int_value <= 0:
                             raise ValueError(f"the 'nb_drones' must be positive integer {int_value} is not positive")
+                        nflag += 1
                 if key == 'start_hub':
+                    if sflag > 0:
+                        raise ValueError("the key start_hub is duplicate.")
                     self.start_hub(value)
+                    sflag += 1
                 if key == 'end_hub':
+                    if eflag > 0:
+                        raise ValueError("the key end_hub is duplicate.")
+                    if sflag == 0:
+                        raise ValueError("You need to add 'start_hub' before end_hub.")
                     self.end_hub(value)
+                    eflag += 1
                 if key == 'hub':
+                    if sflag == 0:
+                        raise ValueError("You need to add 'start_hub' before hub.")
                     if len(value.split()) < 3:
                         raise ValueError(f"you missed a value the line should be : hub: name x y")
                     if len(value.split()) > 3:
@@ -88,6 +98,10 @@ class Parse:
                             name, x, y = value.split()
                     self.hub(name, x, y)
                 if key == 'connection':
+                    if sflag == 0:
+                        raise ValueError("You need to add 'start_hub' before connection.")
+                    if eflag == 0:
+                        raise ValueError("You need to add 'end_hub' before connection.")
                     if len(value.split(None, 1)) > 2:
                         raise ValueError(f"Wrote more than two arguments {value}.\nConnection: zone1-zone2 [metadata (optionnal)]")
                     elif len(value.split(None, 1)) == 2:
@@ -125,7 +139,9 @@ class Parse:
             raise ValueError("The name of the zone can't have space in it")
         else:
             if name.strip() in self.zone_name:
-                raise ValueError("The name of zone is repeated")
+                raise ValueError("The name of zone is must change it already taken")
+            if (x, y) in self.zone_name.values():
+                raise ValueError("The values of coord 'hub' must change it already taken")
             self.zone_name[name.strip()] = (x, y)
 
 
@@ -136,16 +152,34 @@ class Parse:
                 l = value.split()
                 int(l[1])
         except ValueError:
-            raise ValueError("the name of the zone should not have a space in it")
-        try:
-            name, x, y = value.split()
-        except ValueError:
-            raise ValueError("The 'start_hub' must just have : name x y")
+            raise ValueError("the name of the zone should not have a space in it.")
+        if len(value.split()) == 3:
+            try:
+                name, x, y = value.split()
+            except ValueError:
+                raise ValueError("The 'start_hub' must just have : name x y [metadata].")
+            else:
+                if '-' in name:
+                    raise ValueError("The '-' symbole can't be use in a name.")
+        elif len(value.split()) > 3:
+            try:
+                name, x, y, metadata = value.split(None,3)
+            except ValueError:
+                raise ValueError("The 'start_hub' must just have : name x y [metadata].")
+            else:
+                if '-' in name:
+                    raise ValueError("The '-' symbole can't be use in a name.")
+                self.meta_data_hubs(metadata,name.strip())
         else:
-            if '-' in name:
-                raise ValueError("The '-' symbole can't be use in a name")
-            self.zone_name[name.strip()] = (x.strip(), y.strip())
-            return
+            raise ValueError("The 'end_hub' must just have : name x y [metadata].")
+        try:
+            x = int(x)
+            y = int(y)
+        except ValueError:
+            raise ValueError(f"check 'start_hub: name (integer) (integer).")
+        else:
+            self.zone_name[name.strip()] = (x, y)
+
 
     def end_hub(self, value: typing.Any):
         try:
@@ -155,19 +189,42 @@ class Parse:
                 int(l[1])
         except ValueError:
             raise ValueError("the name of the zone should not have a space in it")
-        try:
-            name, x, y = value.split()
-        except ValueError:
-            raise ValueError("The 'end_hub' must just have : name x y")
+        if len(value.split()) == 3:
+            try:
+                name, x, y = value.split()
+            except ValueError:
+                raise ValueError("The 'end_hub' must just have : name x y [metadata].")
+            else:
+                if '-' in name:
+                    raise ValueError("The '-' symbole can't be use in a name")
+        elif len(value.split()) > 3:
+            try:
+                name, x, y, metadata = value.split(None, 3)
+            except ValueError:
+                raise ValueError("The 'end_hub' must just have : name x y [metadata].")
+            else:
+                if '-' in name:
+                    raise ValueError("The '-' symbole can't be use in a name")
+                self.meta_data_hubs(metadata, name.strip())
         else:
-            if '-' in name:
-                raise ValueError("The '-' symbole can't be use in a name")
-            if name in self.zone_name.keys():
-                raise ValueError("The name of 'end_hub' must change")
-            self.zone_name[name] = (x.strip(), y.strip())
-            return
+            raise ValueError("The 'end_hub' must just have : name x y [metadata].")
+        try:
+            x = int(x)
+            y = int(y)
+        except ValueError:
+            raise ValueError(f"check 'start_hub: name (positive integer) (positive integer)")
+        else:
+            if name.strip() in self.zone_name.keys():
+                raise ValueError("The name of 'end_hub' must change it already taken")
+            if (x, y) in self.zone_name.values():
+                raise ValueError("The values of 'end_hub' must change it already taken")
+            self.zone_name[name.strip()] = (x, y)
+
 
     def meta_data_hubs(self, metadata: str, key : str):
+        z = 0
+        c = 0
+        d = 0
         meta = {}
         meta_keys = []
         x = metadata.strip()
@@ -185,38 +242,45 @@ class Parse:
             name = name.strip()
             if name not in ["zone", "color", "max_drones"]:
                 raise ValueError(f"The key of the metadata you tipped {name} is not valid \nThe keys are: 'zone' 'color' 'max_drones'.")
-            if meta_keys.count("zone") > 1:
-                    raise ValueError("the key zone is duplicate")
-            if meta_keys.count("color") > 1 :
-                    raise ValueError("the key color is duplicate")
-            if meta_keys.count("max_drones") > 1 :
-                    raise ValueError("the key max_drones is duplicate")
             if name == 'zone':
+                if z >= 1:
+                    raise ValueError("the key 'zone' is duplicate")
+                z += 1
                 if value.strip() not in ["normal","restricted","priority","blocked"]:
                     raise ValueError(f"The zone you written {value} is not a valid type the valid types are :['normal','restricted','priority','blocked']")
             if name == 'color':
+                if c >= 1:
+                    raise ValueError("the key 'color' is duplicate")
+                c += 1
                 try:
                     name_to_rgb(value.strip().lower())
                 except ValueError as error:
                     raise ValueError(error)
             if name == 'max_drones':
+                if d >= 1:
+                    raise ValueError("the key 'max_drones' is duplicate")
+                d += 1
                 try:
                     value = int(value)
                 except ValueError:
                     raise ValueError(f"The value of 'max_drones' should be an integer")
+                else:
+                    if value < 0:
+                        raise ValueError(f"The number of 'max_drones' should be positive")
             meta_keys.append(name)
             meta[name] = value
         self.meta_dic[key.strip()] = meta
 
 
     def connection(self, value: str) -> None:
-        print(value)
         value = value.strip()
         self.check_dash(value)
         if  2 > len(value.split('-')) >= 3:
             raise ValueError(f"The connections must be between two zone names : zone1-zone2 .")
         x1, y1 = value.split('-')
         x1, y1 = x1.strip(), y1.strip()
+        if x1 == y1 :
+            raise ValueError(f"{x1} can't make a connexion with itself.")
         self.check_zone_name(x1)
         self.check_zone_name(y1)
         if self.connections:
@@ -224,7 +288,6 @@ class Parse:
                 self.check_dash(connection)
                 x, y = connection.split('-')
                 x, y = x.strip(), y.strip()
-                print(f"{x}, {x1} ,{y}, {y1}")
                 if (x1 == x and y1 == y) or (x1 == y and y1 == x):
                     raise ValueError(f"The connection {connection} is the same as {value}.\nThe connections should not be repeated.")
         self.connections.append(value)
@@ -249,10 +312,15 @@ class Parse:
             value = int(value)
         except ValueError:
             raise ValueError(f"The value of 'max_link_capacity' should be an integer")
+        else:
+            if value < 0:
+                raise ValueError(f"The number of 'max_link_capacity' should be positive")
         self.meta_connection_dic[self.connections[-1]] = value
 
 
     def check_dash(self, value: str):
+        if value.count('-') > 1:
+            raise ValueError(f"The connection should not have multiple dash between zones")
         if '-' not in value:
             raise ValueError(f"No dash between connections '{value}'")
         if '-' == value[0] or '-' == value[-1]:
