@@ -1,14 +1,14 @@
 import typing
-from webcolors import name_to_rgb
-
+try:
+    from webcolors import name_to_rgb
+except Exception as e:
+    print(e)
 
 class Parse:
     def __init__(self, file_name,):
         self.file_name = file_name
         self.line_count = 0
         self.key_count = 0
-        self.keys = []
-        self.values = []
         self.lst = []
         self.lst2 = []
         self.zone_name = {}
@@ -17,9 +17,6 @@ class Parse:
         self.meta_connection_dic = {}
 
     def file_cleaner(self) -> int:
-        if self.file_name != "config.txt":
-            print("Error: The name of the file should be 'config.txt")
-            return 1
         try:
             with open(self.file_name,'r') as f:
                 for ligne in f:
@@ -115,18 +112,15 @@ class Parse:
                             raise ValueError(f"The connection is not a string {connection}")
                         self.connection(connection)
                 self.key_count += 1
-                self.keys.append(key)
-                self.values.append(value)
         except Exception as e:
             print(f"Error in line {self.line_count}: {e}")
-            return 1
+            return None, None, None, None
         else:
-            print(self.zone_name)
-            print(self.meta_dic)
-            print(self.meta_connection_dic)
-            print(self.connections)
-            print("done")
-            return 0
+            # print(self.zone_name)
+            # print(self.meta_dic)
+            # print(self.connections)
+            # print(self.meta_connection_dic)
+            return self.zone_name, self.meta_dic, self.connections, self.meta_connection_dic
 
 
     def hub(self, name: str, x: str, y: str):
@@ -349,8 +343,14 @@ class Parse:
 
     
 if __name__ == "__main__":
-    x = Parse("config.txt")
+    x = Parse("../maps/challenger/01_the_impossible_dream.txt")
     if 1 == x.file_cleaner():
         exit(1)
-    if x.parse_arguments() == 1:
+    try:
+        zones, metadic, connections, meta_connection_dic = x.parse_arguments()
+    except Exception as e:
+        print(e)
         exit(1)
+    else:
+        if zones is None and meta_connection_dic is None and connections is None and meta_connection_dic is None:
+            exit(1)

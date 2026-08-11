@@ -7,9 +7,9 @@ hub: A 2 3 [max_drones=3 color=yellow zone=normal] # normal zone
 hub: hello   3   3  [max_drones=3 color=yellow zone=normal]
 end_hub: end 10 10 [max_drones=3 color=yellow zone=normal]
 
-connection: start--A   [ max_link_capacity=2]
+connection: start-A   [ max_link_capacity=2]
 connection: A-hello
-
+connection: hello-end
 
 
 
