@@ -1,15 +1,12 @@
-#dsds
+# Easy Level 1: Simple linear path
+nb_drones: 2
 
-nb_drones: 10
+start_hub: start 0 0 [color=green]
+hub: waypoint1 1 0 [color=blue]
+hub: waypoint2 2 0 [color=blue]
+end_hub: goal 3 0 [color=red]
 
-start_hub : start 0 0 [max_drones=3 color=yellow zone=normal]
-hub: A 2 3 [max_drones=3 color=yellow zone=normal] # normal zone
-hub: hello   3   3  [max_drones=3 color=yellow zone=normal]
-end_hub: end 10 10 [max_drones=3 color=yellow zone=normal]
-
-connection: start-A   [ max_link_capacity=2]
-connection: A-hello
-connection: hello-end
-
-
+connection: start-waypoint1
+connection: waypoint1-waypoint2
+connection: waypoint2-goal
 

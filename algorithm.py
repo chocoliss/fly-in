@@ -1,10 +1,12 @@
+from math import sqrt
+
 class Dijkstra:
     def __init__(self, zones: dict, metadic: dict, connections: list, meta_connection_dic: dict):
         self.zones = zones
         self.metadic = metadic
         self.connections = connections
         self.meta_connection_dic = meta_connection_dic
-        self.visited = set()
+        self.visited = []
         self.unvisited = []
         self.path = {}
         self.previous_point = {}
@@ -21,24 +23,48 @@ class Dijkstra:
             self.parse_connections(point)
             if point == start:
                 self.point_cost[point] = 0
+
             else:
-                self.unvisited.append(point)
-                self.point_cost[point] = None
-        print(self.points_available)
-        # print(self.point_cost)
+                self.point_cost[point] = 2147483647
+            self.unvisited.append(point)
+
         for point in self.zones:
+            # print(point)
+            # lst = sorted(self.points_available[point],key=lambda x: self.cost(self.zones[point], self.zones[x]))
+            # print(lst)
+            dic = {}
+            print(f"the point is {point}")
             for available in self.points_available[point]:
-                if available not in self.visited and available in self.unvisited:
-                    value = self.cost(self.zones[available],self.zones[point])
-                    print(f"the point {point} and it neighbour {available} and the distance betwen them is {value}")
+                print(f"the point available {available}")
+                if available in self.visited:
+                    print(f"pass {available}")
+                    continue
+                value = self.cost(self.zones[available],self.zones[point]) + self.point_cost[point]
+                print(f"cost of {available} : {value}")
+                dic[available] = value
+                if value < self.point_cost[available] or self.point_cost[point] == None:
+                    self.point_cost[available] = value
+                    self.previous_point[available] = point
+                # print(f"the point '{point}' and it neighbour '{available}' and the distance betwen them is '{value}'")
+            print(f"The value of the point available {dic}")
+            if point not in self.visited:
+                self.visited.append(point)
+            if point in self.unvisited:
+                self.unvisited.remove(point)
+            print(self.point_cost)
+            print(self.previous_point)
 
-
+        # name = list(self.zones.keys())[-1]
+        # while (name != start):
+        #     print(self.previous_point[name])
+        #     name = self.previous_point[name]
 
 
     def cost(self, point1: tuple,point2: tuple) -> int:
             x, y = point1
             x2, y2 = point2
-            return abs(x2-x), abs(y-y2)
+            total = abs(x- x2) + abs(y- y2)
+            return total
 
 
     def parse_connections(self,point: str):
