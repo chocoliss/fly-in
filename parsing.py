@@ -9,6 +9,7 @@ class Parse:
         self.file_name = file_name
         self.line_count = 0
         self.key_count = 0
+        self.nb_drones = 0
         self.lst = []
         self.lst2 = []
         self.zone_name = {}
@@ -66,8 +67,11 @@ class Parse:
                     else:
                         if int_value <= 0:
                             raise ValueError(f"the 'nb_drones' must be positive integer {int_value} is not positive")
+                        self.nb_drones = int_value
                         nflag += 1
                 if key == 'start_hub':
+                    if nflag == 0:
+                        raise ValueError("you should add the 'nb_drones'.")
                     if sflag > 0:
                         raise ValueError("the key start_hub is duplicate.")
                     self.start_hub(value)
@@ -75,11 +79,17 @@ class Parse:
                 if key == 'end_hub':
                     if eflag > 0:
                         raise ValueError("the key end_hub is duplicate.")
+                    if nflag == 0:
+                        raise ValueError("you should add the 'nb_drones'.")
                     if sflag == 0:
                         raise ValueError("You need to add 'start_hub' before end_hub.")
                     self.end_hub(value)
                     eflag += 1
                 if key == 'hub':
+                    if eflag > 0:
+                        raise ValueError("You can't add a hub after the 'end_hub'.")
+                    if nflag == 0:
+                        raise ValueError("you should add the 'nb_drones'.")
                     if sflag == 0:
                         raise ValueError("You need to add 'start_hub' before hub.")
                     if len(value.split()) < 3:
@@ -95,6 +105,8 @@ class Parse:
                             name, x, y = value.split()
                     self.hub(name, x, y)
                 if key == 'connection':
+                    if nflag == 0:
+                        raise ValueError("you should add the 'nb_drones'.")
                     if sflag == 0:
                         raise ValueError("You need to add 'start_hub' before connection.")
                     if eflag == 0:
@@ -120,7 +132,7 @@ class Parse:
             # print(self.meta_dic)
             # print(self.connections)
             # print(self.meta_connection_dic)
-            return self.zone_name, self.meta_dic, self.connections, self.meta_connection_dic
+            return self.nb_drones, self.zone_name, self.meta_dic, self.connections, self.meta_connection_dic
 
 
     def hub(self, name: str, x: str, y: str):
@@ -334,7 +346,7 @@ class Parse:
 
     def check_zone_name(self, name: str) -> None:
         if name not in self.zone_name.keys():
-            raise ValueError(f"The name you've been given {name} has not been in any 'hub'.")
+            raise ValueError(f"The name you've been given '{name}' has not been in any 'hub'.")
 
 
     def  check_equal(self,title: str) -> None:
@@ -347,7 +359,7 @@ if __name__ == "__main__":
     if 1 == x.file_cleaner():
         exit(1)
     try:
-        zones, metadic, connections, meta_connection_dic = x.parse_arguments()
+        nb, zones, metadic, connections, meta_connection_dic = x.parse_arguments()
     except Exception as e:
         print(e)
         exit(1)

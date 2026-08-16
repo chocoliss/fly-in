@@ -1,71 +1,64 @@
-from math import sqrt
-
 class Dijkstra:
-    def __init__(self, zones: dict, metadic: dict, connections: list, meta_connection_dic: dict):
+    def __init__(self,nb_drones:int, zones: dict, metadic: dict, connections: list, meta_connection_dic: dict):
         self.zones = zones
+        self.__nb_drones = nb_drones
         self.metadic = metadic
         self.connections = connections
         self.meta_connection_dic = meta_connection_dic
         self.visited = []
         self.unvisited = []
-        self.path = {}
+        self.paths = {}
         self.previous_point = {}
         self.points_available = {}
         self.point_cost = {}
 
-    def path_finding(self) -> None:
-        # for connection in self.connections:
-        #     a, b = connection.split('-')
-        #     print(f"connection: {connection} where {a}:{self.zones[a]} and {b}:{self.zones[b]}")
-        #     print(f"The distance between them is {self.cost(self.zones[a], self.zones[b])}")
+
+    def initialization(self):
         start = list(self.zones.keys())[0]
         for point in self.zones:
             self.parse_connections(point)
             if point == start:
-                self.point_cost[point] = 0
-
+                self.point_cost[point] = 0    
             else:
-                self.point_cost[point] = 2147483647
+                self.point_cost[point] = float("inf")
             self.unvisited.append(point)
+            self.metadic[point] = self.zone_metadata(point)
 
-        for point in self.zones:
-            # print(point)
-            # lst = sorted(self.points_available[point],key=lambda x: self.cost(self.zones[point], self.zones[x]))
-            # print(lst)
-            dic = {}
-            print(f"the point is {point}")
+    def path_finding(self):
+        self.initialization()
+        while self.unvisited:
+            point = min(self.unvisited, key=lambda x:(self.point_cost[x]))
             for available in self.points_available[point]:
-                print(f"the point available {available}")
-                if available in self.visited:
-                    print(f"pass {available}")
+                if available in self.visited or self.metadic[available]['zone'] == 'blocked':
                     continue
-                value = self.cost(self.zones[available],self.zones[point]) + self.point_cost[point]
-                print(f"cost of {available} : {value}")
-                dic[available] = value
-                if value < self.point_cost[available] or self.point_cost[point] == None:
+                edge_cost = self.cost(point, available)
+                value = self.point_cost[point] + edge_cost
+                print(f"cost of {available}: {value}")
+                if (self.point_cost[available] is float("inf") or value < self.point_cost[available]):
                     self.point_cost[available] = value
                     self.previous_point[available] = point
-                # print(f"the point '{point}' and it neighbour '{available}' and the distance betwen them is '{value}'")
-            print(f"The value of the point available {dic}")
-            if point not in self.visited:
-                self.visited.append(point)
-            if point in self.unvisited:
-                self.unvisited.remove(point)
-            print(self.point_cost)
-            print(self.previous_point)
-
-        # name = list(self.zones.keys())[-1]
-        # while (name != start):
-        #     print(self.previous_point[name])
-        #     name = self.previous_point[name]
+            self.visited.append(point)
+            self.unvisited.remove(point)
+        print(self.point_cost)
+        print(self.previous_point)
 
 
-    def cost(self, point1: tuple,point2: tuple) -> int:
-            x, y = point1
-            x2, y2 = point2
-            total = abs(x- x2) + abs(y- y2)
-            return total
+    def cost(self, point1: str,point2: str) -> int:
+        cost = 0
+        start = list(self.zones.keys())[0]
+        while (start != point1):
+            point1 = self.previous_point[point1]
+            cost += self.point_cost[point1]
+        return cost + self.zone_cost(point2)
 
+    def zone_cost(self, point: str) -> int:
+        zone = self.metadic[point]['zone']
+        if zone == 'normal':
+            return 1
+        if zone == 'priority':
+            return 0.99
+        if zone == 'restricted':
+            return 2
 
     def parse_connections(self,point: str):
         lst = []
@@ -80,6 +73,45 @@ class Dijkstra:
         self.points_available[point] = lst
 
 
+    def print_path(self):
+        start = list(self.zones.keys())[0]
+        end = list(self.zones.keys())[-1]
+        lst = []
+        while(start != end):
+            lst.append(end)
+            end = self.previous_point[end]
+        lst.append(start)
+        r = "->".join(lst[::-1])
+        print(r)
+
+
+    def zone_metadata(self,name: str) -> dict:
+        color: str = "none"
+        zone: str = "normal"
+        max_drones: int = 1
+        if name in self.metadic.keys():
+            if "color" in self.metadic[name].keys():
+                color = self.metadic[name]['color']
+            if "zone" in self.metadic[name].keys():
+                zone = self.metadic[name]['zone']
+            if "max_drones" in self.metadic[name].keys():
+                max_drones = self.metadic[name]['max_drones']
+        dic = {
+            'color': color,
+            'zone': zone,
+            'max_drones': max_drones
+        }
+        return dic
+
+
+    def connection_metadata(self, connection: str) -> int:
+        max_link_capacity: int = 0
+        if connection in meta_connection_dic.keys():
+                max_link_capacity = self.meta_connection_dic[connection]
+        return max_link_capacity
+    
+
+        
 if __name__ == "__main__":
     from parsing import Parse
 
@@ -87,12 +119,19 @@ if __name__ == "__main__":
     if 1 == x.file_cleaner():
         exit(1)
     try:
-        zones, metadic, connections, meta_connection_dic = x.parse_arguments()
+        nb_drones, zones, metadic, connections, meta_connection_dic = x.parse_arguments()
     except Exception as e:
         print(e)
         exit(1)
     else:
-        if zones is None and meta_connection_dic is None and connections is None and meta_connection_dic is None:
+        if zones is None or meta_connection_dic is None or connections is None or meta_connection_dic is None:
             exit(1)
-        p = Dijkstra(zones=zones,metadic=metadic,connections=connections,meta_connection_dic=meta_connection_dic)
+        # print(metadic)
+        p = Dijkstra(nb_drones=nb_drones,zones=zones,metadic=metadic,connections=connections,meta_connection_dic=meta_connection_dic)
+        # for name in zones:
+        #     print(p.zone_metadata(name))
+        # for connection in connections:
+        #     print(p.connection_metadata(connection))
         p.path_finding()
+        p.print_path()
+        exit(0)
