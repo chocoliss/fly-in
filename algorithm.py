@@ -1,57 +1,85 @@
 class Dijkstra:
-    def __init__(self,nb_drones:int, zones: dict, metadic: dict, connections: list, meta_connection_dic: dict):
+    def __init__(self,nb_drones:int, zones: dict, metadic: dict, connections: list, meta_connection_dic: dict, end: str, start: str):
         self.zones = zones
         self.__nb_drones = nb_drones
         self.metadic = metadic
         self.connections = connections
         self.meta_connection_dic = meta_connection_dic
+        self.start = start
+        self.end = end
         self.visited = []
         self.unvisited = []
         self.paths = {}
+        self.paths_cost = {}
         self.previous_point = {}
         self.points_available = {}
         self.point_cost = {}
 
 
-    def initialization(self):
-        start = list(self.zones.keys())[0]
+    def initialization(self, point_cost: dict, unvisited: list, visited: list):
         for point in self.zones:
             self.parse_connections(point)
-            if point == start:
-                self.point_cost[point] = 0    
-            else:
-                self.point_cost[point] = float("inf")
-            self.unvisited.append(point)
+            if point == self.start:
+                point_cost[point] = 0
+            elif point not in point_cost:
+                point_cost[point] = float("inf")
+            if point not in visited:
+                unvisited.append(point)
             self.metadic[point] = self.zone_metadata(point)
 
-    def path_finding(self):
-        self.initialization()
-        while self.unvisited:
-            point = min(self.unvisited, key=lambda x:(self.point_cost[x]))
+
+    def path_finding(self, start_point: str, visited: list, unvisited: list, point_cost: dict, previous_point: dict):
+        self.initialization(point_cost, unvisited, visited)
+        while unvisited:
+            point = min(unvisited, key=lambda x:(point_cost[x]))
+            # print("the point is ", point)
+            # print("the available points are3 " ,self.points_available[point])
             for available in self.points_available[point]:
-                if available in self.visited or self.metadic[available]['zone'] == 'blocked':
+                if available in visited or self.metadic[available]['zone'] == 'blocked':
                     continue
-                edge_cost = self.cost(point, available)
-                value = self.point_cost[point] + edge_cost
-                print(f"cost of {available}: {value}")
-                if (self.point_cost[available] is float("inf") or value < self.point_cost[available]):
-                    self.point_cost[available] = value
-                    self.previous_point[available] = point
-            self.visited.append(point)
-            self.unvisited.remove(point)
-        print(self.point_cost)
-        print(self.previous_point)
+                edge_cost = self.cost(available)
+                value = point_cost[point] + edge_cost
+                # print(f"cost of {available}: {value} = {point_cost[point]} + {edge_cost}")
+                if  value < point_cost[available]:
+                    point_cost[available] = value
+                    previous_point[available] = point
+            visited.append(point)
+            unvisited.remove(point)
+        # print(point_cost)
+        # print(previous_point)
 
 
-    def cost(self, point1: str,point2: str) -> int:
-        cost = 0
-        start = list(self.zones.keys())[0]
-        while (start != point1):
-            point1 = self.previous_point[point1]
-            cost += self.point_cost[point1]
-        return cost + self.zone_cost(point2)
+    def multi_path_finding(self):
+        p_cost = {}
+        path = []
+        l_unvisited = []
+        pr_point = {}
+        self.path_finding(self.start, self.visited, self.unvisited, self.point_cost, self.previous_point)
+        short_path = self.path(self.start, self.end, self.previous_point)
+        self.print_path(self.start, self.end, self.previous_point)
+        short_path = short_path[::-1]
+        self.paths['1'] = short_path
+        self.paths_cost['1'] = self.point_cost[self.end]
+        for zone in short_path[1:-1]:
+            l_visited = []
+            # print("The zone were blockin", zone)
+            l_visited.append(zone)
+            path.append(zone)
+            self.path_finding(zone, l_visited, l_unvisited, p_cost, pr_point)
+            # print("lvisited" ,l_visited)
+            if self.end not in pr_point:
+                continue
+            self.paths[zone] = self.path(self.start, self.end, pr_point)[::-1]
+            self.paths_cost[zone] = p_cost[self.end]
+            # print(self.paths)
+            print(self.paths_cost)
+            for key in self.paths.keys():
+                if key == '1':
+                    continue
+                self.print_path(self.start, self.end, pr_point)
 
-    def zone_cost(self, point: str) -> int:
+
+    def cost(self, point: str) -> float:
         zone = self.metadic[point]['zone']
         if zone == 'normal':
             return 1
@@ -73,17 +101,20 @@ class Dijkstra:
         self.points_available[point] = lst
 
 
-    def print_path(self):
-        start = list(self.zones.keys())[0]
-        end = list(self.zones.keys())[-1]
+    def path(self, start: str, end: str, previous_point: list) -> list:
         lst = []
         while(start != end):
             lst.append(end)
-            end = self.previous_point[end]
+            end = previous_point[end]
         lst.append(start)
-        r = "->".join(lst[::-1])
-        print(r)
+        return lst
 
+
+    def print_path(self, start: str, end: str,previous_point: list) -> None:
+        lst = self.path(start, end, previous_point)
+        lst = lst[::-1]
+        r = ' -> '.join(lst)
+        print(r)
 
     def zone_metadata(self,name: str) -> dict:
         color: str = "none"
@@ -119,7 +150,7 @@ if __name__ == "__main__":
     if 1 == x.file_cleaner():
         exit(1)
     try:
-        nb_drones, zones, metadic, connections, meta_connection_dic = x.parse_arguments()
+        nb_drones, zones, metadic, connections, meta_connection_dic, end, start = x.parse_arguments()
     except Exception as e:
         print(e)
         exit(1)
@@ -127,11 +158,6 @@ if __name__ == "__main__":
         if zones is None or meta_connection_dic is None or connections is None or meta_connection_dic is None:
             exit(1)
         # print(metadic)
-        p = Dijkstra(nb_drones=nb_drones,zones=zones,metadic=metadic,connections=connections,meta_connection_dic=meta_connection_dic)
-        # for name in zones:
-        #     print(p.zone_metadata(name))
-        # for connection in connections:
-        #     print(p.connection_metadata(connection))
-        p.path_finding()
-        p.print_path()
+        p = Dijkstra(nb_drones=nb_drones,zones=zones,metadic=metadic,connections=connections,meta_connection_dic=meta_connection_dic, end=end, start=start)
+        p.multi_path_finding()
         exit(0)

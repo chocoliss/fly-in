@@ -12,6 +12,8 @@ class Parse:
         self.nb_drones = 0
         self.lst = []
         self.lst2 = []
+        self.start = ""
+        self.end = ""
         self.zone_name = {}
         self.meta_dic = {}
         self.connections = []
@@ -128,11 +130,7 @@ class Parse:
             print(f"Error in line {self.line_count}: {e}")
             return None, None, None, None
         else:
-            # print(self.zone_name)
-            # print(self.meta_dic)
-            # print(self.connections)
-            # print(self.meta_connection_dic)
-            return self.nb_drones, self.zone_name, self.meta_dic, self.connections, self.meta_connection_dic
+            return self.nb_drones, self.zone_name, self.meta_dic, self.connections, self.meta_connection_dic, self.end, self.start
 
 
     def hub(self, name: str, x: str, y: str):
@@ -167,6 +165,7 @@ class Parse:
             else:
                 if '-' in name:
                     raise ValueError("The '-' symbole can't be use in a name.")
+                self.start = name
         elif len(value.split()) > 3:
             try:
                 name, x, y, metadata = value.split(None,3)
@@ -176,6 +175,7 @@ class Parse:
                 if '-' in name:
                     raise ValueError("The '-' symbole can't be use in a name.")
                 self.meta_data_hubs(metadata,name.strip())
+                self.start = name
         else:
             raise ValueError("The 'end_hub' must just have : name x y [metadata].")
         try:
@@ -203,6 +203,7 @@ class Parse:
             else:
                 if '-' in name:
                     raise ValueError("The '-' symbole can't be use in a name")
+                self.end = name
         elif len(value.split()) > 3:
             try:
                 name, x, y, metadata = value.split(None, 3)
@@ -211,6 +212,7 @@ class Parse:
             else:
                 if '-' in name:
                     raise ValueError("The '-' symbole can't be use in a name")
+                self.end = name
                 self.meta_data_hubs(metadata, name.strip())
         else:
             raise ValueError("The 'end_hub' must just have : name x y [metadata].")
