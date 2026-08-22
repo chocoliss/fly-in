@@ -11,15 +11,16 @@ class Dijkstra:
         self.unvisited = []
         self.paths = {}
         self.paths_cost = {}
+        self.order_paths = []
         self.previous_point = {}
         self.points_available = {}
         self.point_cost = {}
 
 
-    def initialization(self, point_cost: dict, unvisited: list, visited: list):
+    def initialization(self, start:str, point_cost: dict, unvisited: list, visited: list):
         for point in self.zones:
             self.parse_connections(point)
-            if point == self.start:
+            if point == start:
                 point_cost[point] = 0
             elif point not in point_cost:
                 point_cost[point] = float("inf")
@@ -28,18 +29,27 @@ class Dijkstra:
             self.metadic[point] = self.zone_metadata(point)
 
 
-    def path_finding(self, start_point: str, visited: list, unvisited: list, point_cost: dict, previous_point: dict):
-        self.initialization(point_cost, unvisited, visited)
+    def path_finding(self, start_point: str, blocked_path: str | None, visited: list, unvisited: list, point_cost: dict, previous_point: dict):
+        self.initialization(start_point, point_cost, unvisited, visited)
         while unvisited:
             point = min(unvisited, key=lambda x:(point_cost[x]))
             # print("the point is ", point)
-            # print("the available points are3 " ,self.points_available[point])
+            # if len(self.points_available[point]) == 1:
+            #     check = self.points_available[point][0]
+            #     if check == blocked_path:
+            #         break
+            if point_cost[point] == float("inf"):
+                print(f"the point {point} is infinity")
+                break
             for available in self.points_available[point]:
+                # print(f"the available points of {point} are {self.points_available[point]}")
+                if point == start_point and blocked_path == available:
+                    continue
                 if available in visited or self.metadic[available]['zone'] == 'blocked':
                     continue
                 edge_cost = self.cost(available)
                 value = point_cost[point] + edge_cost
-                # print(f"cost of {available}: {value} = {point_cost[point]} + {edge_cost}")
+                print(f"cost of {available}: {value} = {point_cost[point]} + {edge_cost}")
                 if  value < point_cost[available]:
                     point_cost[available] = value
                     previous_point[available] = point
@@ -50,33 +60,34 @@ class Dijkstra:
 
 
     def multi_path_finding(self):
-        p_cost = {}
         path = []
-        l_unvisited = []
-        pr_point = {}
-        self.path_finding(self.start, self.visited, self.unvisited, self.point_cost, self.previous_point)
+        self.path_finding(self.start, None,  self.visited, self.unvisited, self.point_cost, self.previous_point)
         short_path = self.path(self.start, self.end, self.previous_point)
         self.print_path(self.start, self.end, self.previous_point)
         short_path = short_path[::-1]
-        self.paths['1'] = short_path
-        self.paths_cost['1'] = self.point_cost[self.end]
-        for zone in short_path[1:-1]:
+        self.paths['shortpath'] = short_path
+        self.paths_cost['shortpath'] = self.point_cost[self.end]
+        for zone in short_path[:-1]:
+            p_cost = {}
+            l_unvisited = []
+            pr_point = {}
             l_visited = []
-            # print("The zone were blockin", zone)
-            l_visited.append(zone)
+            blocked_path = short_path[short_path.index(zone) + 1]
+            print(blocked_path)
             path.append(zone)
-            self.path_finding(zone, l_visited, l_unvisited, p_cost, pr_point)
-            # print("lvisited" ,l_visited)
+            if zone != self.start:
+                pr_point[zone] = self.previous_point[zone]
+            self.path_finding(zone, blocked_path, l_visited, l_unvisited, p_cost, pr_point)
             if self.end not in pr_point:
                 continue
-            self.paths[zone] = self.path(self.start, self.end, pr_point)[::-1]
-            self.paths_cost[zone] = p_cost[self.end]
-            # print(self.paths)
+            lst = self.path(self.start, zone, self.previous_point)[::-1] + self.path(zone, self.end, pr_point)[::-1]
+            lst.remove(zone)
+            self.paths[zone] = lst
+            self.paths_cost[zone] =  self.point_cost[zone] + p_cost[self.end]
+            print(self.paths)
             print(self.paths_cost)
-            for key in self.paths.keys():
-                if key == '1':
-                    continue
-                self.print_path(self.start, self.end, pr_point)
+        self.order_paths = sorted(self.paths_cost, key=lambda x: self.paths_cost[x])
+        return 
 
 
     def cost(self, point: str) -> float:
@@ -140,9 +151,9 @@ class Dijkstra:
         if connection in meta_connection_dic.keys():
                 max_link_capacity = self.meta_connection_dic[connection]
         return max_link_capacity
-    
 
-        
+
+
 if __name__ == "__main__":
     from parsing import Parse
 
