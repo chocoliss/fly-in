@@ -1,7 +1,6 @@
 class Dijkstra:
     def __init__(self,nb_drones:int, zones: dict, metadic: dict, connections: list, meta_connection_dic: dict, end: str, start: str):
         self.zones = zones
-        self.__nb_drones = nb_drones
         self.metadic = metadic
         self.connections = connections
         self.meta_connection_dic = meta_connection_dic
@@ -39,7 +38,7 @@ class Dijkstra:
             #     if check == blocked_path:
             #         break
             if point_cost[point] == float("inf"):
-                print(f"the point {point} is infinity")
+                # print(f"the point {point} is infinity")
                 break
             for available in self.points_available[point]:
                 # print(f"the available points of {point} are {self.points_available[point]}")
@@ -49,7 +48,7 @@ class Dijkstra:
                     continue
                 edge_cost = self.cost(available)
                 value = point_cost[point] + edge_cost
-                print(f"cost of {available}: {value} = {point_cost[point]} + {edge_cost}")
+                # print(f"cost of {available}: {value} = {point_cost[point]} + {edge_cost}")
                 if  value < point_cost[available]:
                     point_cost[available] = value
                     previous_point[available] = point
@@ -61,19 +60,20 @@ class Dijkstra:
 
     def multi_path_finding(self):
         path = []
+        names = ['p2','p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9']
         self.path_finding(self.start, None,  self.visited, self.unvisited, self.point_cost, self.previous_point)
-        short_path = self.path(self.start, self.end, self.previous_point)
-        self.print_path(self.start, self.end, self.previous_point)
+        short_path = self.path(self.start, self.end, self.previous_point) 
+        # self.print_path(self.start, self.end, self.previous_point, None)
         short_path = short_path[::-1]
         self.paths['shortpath'] = short_path
         self.paths_cost['shortpath'] = self.point_cost[self.end]
+        i = 1
         for zone in short_path[:-1]:
             p_cost = {}
             l_unvisited = []
             pr_point = {}
             l_visited = []
             blocked_path = short_path[short_path.index(zone) + 1]
-            print(blocked_path)
             path.append(zone)
             if zone != self.start:
                 pr_point[zone] = self.previous_point[zone]
@@ -82,12 +82,37 @@ class Dijkstra:
                 continue
             lst = self.path(self.start, zone, self.previous_point)[::-1] + self.path(zone, self.end, pr_point)[::-1]
             lst.remove(zone)
-            self.paths[zone] = lst
-            self.paths_cost[zone] =  self.point_cost[zone] + p_cost[self.end]
-            print(self.paths)
-            print(self.paths_cost)
+            self.paths[names[i]] = lst
+            self.paths_cost[names[i]] =  self.point_cost[zone] + p_cost[self.end]
+            i += 1
         self.order_paths = sorted(self.paths_cost, key=lambda x: self.paths_cost[x])
-        return 
+        # print(self.paths)
+        # print(self.paths_cost)
+        # for element in self.order_paths:
+        #     self.print_path(self.start,self.end,None, self.paths[element])
+        # self.check_paths()
+        return self.paths, self.paths_cost, self.order_paths
+
+
+    # def check_paths(self):
+    #     length = len(self.order_paths)
+    #     if length == 1:
+    #         return
+    #     j = 0
+    #     while(j < length):
+    #         i = j + 1
+    #         while(i + 1 <= length):
+    #             if self.paths[self.order_paths[j]] != self.paths[self.order_paths[i]]:
+    #                 p1 = set(self.paths[self.order_paths[i]])
+    #                 p2 = set(self.paths[self.order_paths[j]])
+    #                 inter = p1.intersection(p2)
+    #                 if inter:
+    #                     print(inter)
+    #                 else:
+    #                     print("no inter")
+    #             i += 1
+    #         j += 1
+    #     return
 
 
     def cost(self, point: str) -> float:
@@ -98,6 +123,7 @@ class Dijkstra:
             return 0.99
         if zone == 'restricted':
             return 2
+
 
     def parse_connections(self,point: str):
         lst = []
@@ -121,9 +147,10 @@ class Dijkstra:
         return lst
 
 
-    def print_path(self, start: str, end: str,previous_point: list) -> None:
-        lst = self.path(start, end, previous_point)
-        lst = lst[::-1]
+    def print_path(self, start: str, end: str,previous_point: list | None, lst: list | None) -> None:
+        if previous_point:
+            lst = self.path(start, end, previous_point)
+            lst = lst[::-1]
         r = ' -> '.join(lst)
         print(r)
 
