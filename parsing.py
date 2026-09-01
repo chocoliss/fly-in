@@ -261,6 +261,8 @@ class Parse:
                     raise ValueError("the key 'color' is duplicate")
                 c += 1
                 try:
+                    if value.strip().lower() == 'rainbow':
+                        value = 'red'
                     name_to_rgb(value.strip().lower())
                 except ValueError as error:
                     raise ValueError(error)
@@ -357,14 +359,15 @@ class Parse:
 
     
 if __name__ == "__main__":
-    x = Parse("../maps/challenger/01_the_impossible_dream.txt")
+    x = Parse("config.txt")
     if 1 == x.file_cleaner():
         exit(1)
     try:
-        nb, zones, metadic, connections, meta_connection_dic = x.parse_arguments()
+        nb, zones, metadic, connections, meta_connection_dic, end, start = x.parse_arguments()
     except Exception as e:
         print(e)
         exit(1)
     else:
-        if zones is None and meta_connection_dic is None and connections is None and meta_connection_dic is None:
+        if zones is None or meta_connection_dic is None or connections is None or meta_connection_dic is None:
             exit(1)
+        

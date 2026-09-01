@@ -60,7 +60,7 @@ class Dijkstra:
 
     def multi_path_finding(self):
         path = []
-        names = ['p2','p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9']
+        names = ['p2','p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14']
         self.path_finding(self.start, None,  self.visited, self.unvisited, self.point_cost, self.previous_point)
         short_path = self.path(self.start, self.end, self.previous_point) 
         # self.print_path(self.start, self.end, self.previous_point, None)
@@ -87,10 +87,9 @@ class Dijkstra:
             i += 1
         self.order_paths = sorted(self.paths_cost, key=lambda x: self.paths_cost[x])
         # print(self.paths)
-        # print(self.paths_cost)
+        print(self.paths_cost)
         # for element in self.order_paths:
         #     self.print_path(self.start,self.end,None, self.paths[element])
-        # self.check_paths()
         return self.paths, self.paths_cost, self.order_paths
 
 

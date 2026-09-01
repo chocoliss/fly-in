@@ -70,7 +70,11 @@ class Simulation:
 
     def create_drones(self) -> None:
         cost = self.cost_of_turns()
-        if cost == 1:
+        result = 0
+        if self.nb_drones % 2 != 0:
+            self.nb_drones = nb_drones - 1
+            result = 1
+        if cost == 2:
             for i in range(self.nb_drones):
                 d = Drone(i, start=self.start, end= self.end)
                 if i < (self.nb_drones / 2):
@@ -78,17 +82,29 @@ class Simulation:
                 else:
                     d.get_path(self.paths[self.paths_order[1]])
                 self.drones.append(d)
-        if cost == 0:
+        if cost == 1:
             count = self.nb_drones // len(self.paths_order)
             for i in range(self.nb_drones):
                 d = Drone(i, start=self.start, end= self.end)
                 path_index = i // count
                 d.get_path(self.paths[self.paths_order[path_index]])
                 self.drones.append(d)
-        if cost == 2:
+        if cost == 0:
             for i in range(self.nb_drones):
                 d = Drone(i, self.start, self.end)
                 d.get_path(self.paths['shortpath'])
+                self.drones.append(d)
+        if cost == 3:
+            for i in range(self.nb_drones):
+                d = Drone(i, start=self.start, end= self.end)
+                if i < (self.nb_drones / 2):
+                    d.get_path(self.paths[self.paths_order[0]])
+                else:
+                    d.get_path(self.paths[self.paths_order[1]])
+                self.drones.append(d)
+            if result == 1:
+                d = Drone(nb_drones, start=self.start, end=self.end)
+                d.get_path(self.paths[self.paths_order[0]])
                 self.drones.append(d)
 
 
@@ -96,12 +112,15 @@ class Simulation:
         self.create_drones()
         self.drones_info()
         self.initialize()
+        turns = 0
         while not self.all_finished():
-
+            turns += 1
+            
             link_usage = {}
             for request in self.requests:
                 next_zone = request['next']
                 current = request['current']
+
                 if current == self.end or next_zone is None:
                     continue
 
@@ -116,17 +135,21 @@ class Simulation:
                 zone_available = self.zone_has_capacity(next_zone)
                 link_available = current_link_usage < max_link_capacity
 
-                if zone_available and link_available:
+                if not link_available:
+                    continue
 
-                    self.moves.append(request)
+                if not zone_available:
+                    continue
 
-                    link_usage[link] = current_link_usage + 1
+                self.moves.append(request)
+                
+                link_usage[link] = current_link_usage + 1
 
-                    # Reserve the places for this turn
-                    self.empty[current] -= 1
+                self.empty[current] -= 1
 
-                    if next_zone != self.end:
-                        self.empty[next_zone] += 1
+                if next_zone != self.end:
+                    self.empty[next_zone] += 1
+
 
             if not self.moves:
                 print("Deadlock: no drone can move")
@@ -151,6 +174,7 @@ class Simulation:
             print()
             
             self.moves.clear()
+        print(turns)
 
 
     def drones_info(self):
@@ -167,11 +191,15 @@ class Simulation:
 
     def cost_of_turns(self) -> int:
         if len(self.paths_order) == 1:
-            return 2
-        if self.nb_drones % len(self.paths_order) == 0 and self.equal() == 0:
             return 0
-        if len(self.paths_order) >= 2 and self.path_cost[self.paths_order[0]] == self.path_cost[self.paths_order[1]]:
+        if self.nb_drones % len(self.paths_order) == 0 and self.equal() == 0:
             return 1
+        if len(self.paths_order) >= 2 and self.path_cost[self.paths_order[0]] == self.path_cost[self.paths_order[1]]:
+            return 2
+        if round(self.path_cost['shortpath']) + 10 <= round(self.path_cost[self.paths_order[1]]):
+            return 3
+        else:
+            return 0
         # to be continued
        
 
