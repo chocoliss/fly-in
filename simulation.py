@@ -38,7 +38,7 @@ class Drone:
         return
 
 
-    def is_finished(self) -> None:
+    def is_finished(self) -> bool:
         return self.finished 
         
 
@@ -57,18 +57,19 @@ class Simulation:
         self.meta_connections = meta_connections
         self.drones: list[Drone] = []
         self.requests : list[dict] = []
+        self.moves: list[dict] = []
         self.empty: dict = {}
-        self.moves: list[str] = []
 
     def initialize(self) -> None:
         for zone in self.graph.keys():
             self.empty[zone]= 0
-        self.empty[self.start] = nb_drones
 
+        self.empty[self.start] = self.nb_drones
+        return
+    
 
     def create_drones(self) -> None:
         cost = self.cost_of_turns()
-        print("the cost is ", cost)
         if cost == 1:
             for i in range(self.nb_drones):
                 d = Drone(i, start=self.start, end= self.end)
@@ -96,51 +97,60 @@ class Simulation:
         self.drones_info()
         self.initialize()
         while not self.all_finished():
-            link_capacity = []
+
+            link_usage = {}
             for request in self.requests:
-                next = request['next']
+                next_zone = request['next']
                 current = request['current']
-                # if next is not None:
-                #     r = '-'.join([current, next])
-                #     print(r)
-                if current == self.end or next is None:
-                    self.empty[current] = 0
+                if current == self.end or next_zone is None:
                     continue
-                if self.isfull(next,current):
-                    self.empty[next] += 1
-                    self.empty[current] -= 1
-                    # count = link_capacity.count(r)
-                    # if count < self.meta_connections[r]:
-                    #     link_capacity.append(r)
-                    # print(f"the current zone {current} is empty")
-                    
+
+                link = "-".join(sorted([current, next_zone]))
+
+                max_link_capacity = self.connection_capacity(
+                    current,
+                    next_zone
+                )
+                current_link_usage = link_usage.get(link, 0)
+
+                zone_available = self.zone_has_capacity(next_zone)
+                link_available = current_link_usage < max_link_capacity
+
+                if zone_available and link_available:
+
                     self.moves.append(request)
-                    # if not self.moves:
-                    #     print("Deadlock: no drone can move")
-                    #     break
-                else :
-                    continue
-            # print('---------------------')
-            # print(self.empty)
-            # print('---------------------')
+
+                    link_usage[link] = current_link_usage + 1
+
+                    # Reserve the places for this turn
+                    self.empty[current] -= 1
+
+                    if next_zone != self.end:
+                        self.empty[next_zone] += 1
+
+            if not self.moves:
+                print("Deadlock: no drone can move")
+                break
+
+
             for request in self.moves:
-                # print(request)
-                id = request['drone']
-                self.drones[id].move()
-                d = self.drones[id]
+
+                d_id = request['drone']
+
+                d = self.drones[d_id]
+            
+                d.move()
+
                 print(
-                    f"D{id} -> {d.current_zone()}",
+                    f"D{d_id}-{d.current_zone()}",
                         end=" "
                     )
-                request['current'] = request['next']
+                request['current'] = d.current_zone()
                 request['next'] = d.get_next_zone()
 
-            if self.moves:
-                print()
+            print()
             
             self.moves.clear()
-
-
 
 
     def drones_info(self):
@@ -155,30 +165,40 @@ class Simulation:
             self.requests.append(request)
 
 
-
-    def isfull(self, next: str, current) -> bool:
-        r = '-'.join([current, next])
-        re = '-'.join([next, current])
-        max_capacity = 1
-        if r in self.meta_connections:
-            max_capacity = self.meta_connections[r]
-        if re in self.meta_connections:
-            max_capacity = self.meta_connections[re]
-        # print(f"the max drones {self.metadic[next]['max_drones']} and max capacity {max_capacity}")
-        if (self.empty[next] == 0) or (self.metadic[next]['max_drones'] - self.empty[next] >= 1 and max_capacity > 1):
-            return True
-        return False
-
-
     def cost_of_turns(self) -> int:
+        if len(self.paths_order) == 1:
+            return 2
         if self.nb_drones % len(self.paths_order) == 0 and self.equal() == 0:
             return 0
         if len(self.paths_order) >= 2 and self.path_cost[self.paths_order[0]] == self.path_cost[self.paths_order[1]]:
             return 1
-        if len(self.paths_order) == 1:
-            return 2
         # to be continued
-        
+       
+
+    def zone_has_capacity(self, zone: str) -> bool:
+        if zone == self.end:
+            return True
+        max_drones = self.metadic[zone]['max_drones']
+        return self.empty[zone] < max_drones
+
+
+    def connection_capacity(
+        self,
+        current: str,
+        next_zone: str
+    ) -> int:
+
+        direct = f"{current}-{next_zone}"
+        reverse = f"{next_zone}-{current}"
+
+        if direct in self.meta_connections:
+            return self.meta_connections[direct]
+
+        if reverse in self.meta_connections:
+            return self.meta_connections[reverse]
+
+        return 1
+
 
     def equal(self) -> int:
         lst = list(self.path_cost.values())
