@@ -59,6 +59,9 @@ class Simulation:
         self.requests : list[dict] = []
         self.moves: list[dict] = []
         self.empty: dict = {}
+        # Each item contains the movements made during one simulation turn.
+        # The Pygame file reads this list only after the simulation is finished.
+        self.movement_history: list[list[dict]] = []
 
     def initialize(self) -> None:
         for zone in self.graph.keys():
@@ -70,111 +73,160 @@ class Simulation:
 
     def create_drones(self) -> None:
         cost = self.cost_of_turns()
-        result = 0
-        if self.nb_drones % 2 != 0:
-            self.nb_drones = nb_drones - 1
-            result = 1
-        if cost == 2:
-            for i in range(self.nb_drones):
-                d = Drone(i, start=self.start, end= self.end)
-                if i < (self.nb_drones / 2):
-                    d.get_path(self.paths[self.paths_order[0]])
-                else:
-                    d.get_path(self.paths[self.paths_order[1]])
-                self.drones.append(d)
-        if cost == 1:
-            count = self.nb_drones // len(self.paths_order)
-            for i in range(self.nb_drones):
-                d = Drone(i, start=self.start, end= self.end)
-                path_index = i // count
-                d.get_path(self.paths[self.paths_order[path_index]])
-                self.drones.append(d)
+
         if cost == 0:
-            for i in range(self.nb_drones):
-                d = Drone(i, self.start, self.end)
-                d.get_path(self.paths['shortpath'])
-                self.drones.append(d)
-        if cost == 3:
-            for i in range(self.nb_drones):
-                d = Drone(i, start=self.start, end= self.end)
-                if i < (self.nb_drones / 2):
-                    d.get_path(self.paths[self.paths_order[0]])
-                else:
-                    d.get_path(self.paths[self.paths_order[1]])
-                self.drones.append(d)
-            if result == 1:
-                d = Drone(nb_drones, start=self.start, end=self.end)
-                d.get_path(self.paths[self.paths_order[0]])
-                self.drones.append(d)
+            selected_paths = ["shortpath"]
+        elif cost in (2, 3):
+            selected_paths = self.paths_order[:2]
+        else:
+            selected_paths = self.paths_order
+
+        for drone_id in range(self.nb_drones):
+            drone = Drone(
+                drone_id,
+                start=self.start,
+                end=self.end
+            )
+
+            path_index = drone_id % len(selected_paths)
+            path_name = selected_paths[path_index]
+
+            drone.get_path(self.paths[path_name])
+            self.drones.append(drone)
 
 
     def start_simulation(self):
         self.create_drones()
         self.drones_info()
         self.initialize()
+        self.movement_history.clear()
+
         turns = 0
+        in_transit = {}
+        reserved = {zone: 0 for zone in self.graph}
+        requests_by_drone = {
+            request['drone']: request for request in self.requests
+        }
+
         while not self.all_finished():
-            turns += 1
-            
+            turn_movements = []
+            turn_output = []
             link_usage = {}
+            arrived_drones = set()
+
+            # A drone that entered a restricted connection during the previous
+            # turn must arrive at its destination during this turn.
+            for d_id, transit in list(in_transit.items()):
+                origin = transit['from']
+                destination = transit['to']
+                drone = self.drones[d_id]
+                request = requests_by_drone[d_id]
+            
+
+                if destination != self.end:
+                    reserved[destination] -= 1
+                    self.empty[destination] += 1
+
+                drone.move()
+                request['current'] = drone.current_zone()
+                request['next'] = drone.get_next_zone()
+                arrived_drones.add(d_id)
+                del in_transit[d_id]
+
+                turn_movements.append({
+                    'drone': d_id,
+                    'from': origin,
+                    'to': destination,
+                    'phase': 'arrival'
+                })
+                turn_output.append(f"D{d_id}-{destination}")
+
+
+            self.moves.clear()
             for request in self.requests:
+                d_id = request['drone']
+                if d_id in in_transit or d_id in arrived_drones:
+                    continue
+
                 next_zone = request['next']
                 current = request['current']
 
                 if current == self.end or next_zone is None:
                     continue
 
-                link = "-".join(sorted([current, next_zone]))
+                zone_type = self.metadic[next_zone]['zone']
+                if zone_type == 'blocked':
+                    continue
 
+                link = "-".join(sorted([current, next_zone]))
                 max_link_capacity = self.connection_capacity(
                     current,
                     next_zone
                 )
                 current_link_usage = link_usage.get(link, 0)
 
-                zone_available = self.zone_has_capacity(next_zone)
                 link_available = current_link_usage < max_link_capacity
-
                 if not link_available:
                     continue
 
-                if not zone_available:
-                    continue
+                if next_zone != self.end:
+                    zone_load = self.empty[next_zone] + reserved[next_zone]
+                    max_drones = self.metadic[next_zone]['max_drones']
+                    if zone_load >= max_drones:
+                        continue
 
                 self.moves.append(request)
-                
                 link_usage[link] = current_link_usage + 1
-
                 self.empty[current] -= 1
 
                 if next_zone != self.end:
-                    self.empty[next_zone] += 1
+                    if zone_type == 'restricted':
+                        reserved[next_zone] += 1
+                    else:
+                        self.empty[next_zone] += 1
 
-
-            if not self.moves:
+            if not self.moves and not turn_movements:
                 print("Deadlock: no drone can move")
                 break
 
-
             for request in self.moves:
-
                 d_id = request['drone']
-
                 d = self.drones[d_id]
-            
-                d.move()
+                old_zone = request['current']
+                next_zone = request['next']
+                zone_type = self.metadic[next_zone]['zone']
 
-                print(
-                    f"D{d_id}-{d.current_zone()}",
-                        end=" "
-                    )
-                request['current'] = d.current_zone()
-                request['next'] = d.get_next_zone()
+                if zone_type == 'restricted':
+                    in_transit[d_id] = {
+                        'from': old_zone,
+                        'to': next_zone
+                    }
+                    turn_movements.append({
+                        'drone': d_id,
+                        'from': old_zone,
+                        'to': next_zone,
+                        'phase': 'transit'
+                    })
+                    turn_output.append(f"D{d_id}-{old_zone}-{next_zone}")
+                else:
+                    d.move()
+                    request['current'] = d.current_zone()
+                    request['next'] = d.get_next_zone()
+                    turn_movements.append({
+                        'drone': d_id,
+                        'from': old_zone,
+                        'to': d.current_zone(),
+                        'phase': 'move'
+                    })
+                    turn_output.append(f"D{d_id}-{d.current_zone()}")
 
-            print()
-            
+            turns += 1
+            print(" ".join(turn_output))
+            self.movement_history.append(turn_movements)
             self.moves.clear()
+
         print(turns)
+        return self.movement_history
 
 
     def drones_info(self):

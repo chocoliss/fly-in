@@ -87,7 +87,7 @@ class Dijkstra:
             i += 1
         self.order_paths = sorted(self.paths_cost, key=lambda x: self.paths_cost[x])
         # print(self.paths)
-        print(self.paths_cost)
+        # print(self.paths_cost)
         # for element in self.order_paths:
         #     self.print_path(self.start,self.end,None, self.paths[element])
         return self.paths, self.paths_cost, self.order_paths
