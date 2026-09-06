@@ -261,9 +261,9 @@ class Parse:
                     raise ValueError("the key 'color' is duplicate")
                 c += 1
                 try:
-                    if value.strip().lower() == 'rainbow':
-                        value = 'red'
-                    name_to_rgb(value.strip().lower())
+                    value =  value.strip().lower()
+                    if value != 'rainbow':
+                        name_to_rgb(value.strip().lower())
                 except ValueError as error:
                     raise ValueError(error)
             if name == 'max_drones':

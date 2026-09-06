@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import math
-import re
 from pathlib import Path
 
 import pygame
@@ -34,7 +33,6 @@ class Visualisation:
         self,
         zones: dict,
         metadata: dict,
-        configured_colors: dict[str, str],
         connections: list,
         start: str,
         end: str,
@@ -50,7 +48,6 @@ class Visualisation:
 
         self.zones = zones
         self.metadata = metadata
-        self.configured_colors = configured_colors
         self.connections = connections
         self.start = start
         self.end = end
@@ -290,7 +287,7 @@ class Visualisation:
             )
 
             # Small inner circle: the color written in config.txt.
-            configured_color = self.configured_colors.get(zone, "white")
+            configured_color = self.metadata.get(zone, {}).get("color", "white")
             self._draw_configured_color(center, 18, configured_color)
 
             if zone_type == "blocked":
@@ -387,24 +384,6 @@ class Visualisation:
         pygame.quit()
 
 
-def _read_configured_colors(config_path: Path) -> dict[str, str]:
-    """Read raw color values without changing special values such as rainbow."""
-    colors = {}
-    color_pattern = re.compile(r"\bcolor=([^\s\]]+)")
-    for raw_line in config_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.split("#", 1)[0].strip()
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        if key.strip() not in {"start_hub", "hub", "end_hub"}:
-            continue
-        values = value.split()
-        match = color_pattern.search(value)
-        if values and match:
-            colors[values[0]] = match.group(1)
-    return colors
-
-
 def load_project(config_path: Path) -> tuple:
     """Run the original simulation once and return its saved movements."""
     parser = Parse(str(config_path))
@@ -441,7 +420,6 @@ def load_project(config_path: Path) -> tuple:
     return (
         zones,
         metadata,
-        _read_configured_colors(config_path),
         connections,
         start,
         end,
