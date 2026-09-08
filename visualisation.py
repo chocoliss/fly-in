@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import argparse
 import math
 from pathlib import Path
 
 import pygame
 
-from algorithm import Dijkstra
-from parsing import Parse
-from simulation import Simulation
+from simulation import Movement
 
 
 WINDOW_SIZE = (1200, 750)
@@ -31,14 +28,15 @@ class Visualisation:
 
     def __init__(
         self,
-        zones: dict,
-        metadata: dict,
-        connections: list,
+        zones: dict[str, tuple[int, int]],
+        metadata: dict[str, dict[str, str | int]],
+        connections: list[str],
         start: str,
         end: str,
         drone_count: int,
-        movement_history: list[list[dict]],
+        movement_history: list[list[Movement]],
     ) -> None:
+        """Initialize the window and replay state for saved movements."""
         pygame.init()
         pygame.display.set_caption("Fly-in drone simulation")
         self.screen = pygame.display.set_mode(WINDOW_SIZE, pygame.RESIZABLE)
@@ -70,7 +68,23 @@ class Visualisation:
         self.pause_between_turns = 350
         self.running = True
 
-        self.drone_picture = self._load_drone_picture()
+        drone_size = 24 if self.drone_count > 16 else 30
+        try:
+            drone_picture = pygame.image.load(
+                str(DRONE_IMAGE)
+            ).convert_alpha()
+        except FileNotFoundError as error:
+            raise FileNotFoundError(
+                f"Drone picture not found: {DRONE_IMAGE}"
+            ) from error
+        except pygame.error as error:
+            raise pygame.error(
+                f"Cannot load drone picture '{DRONE_IMAGE}': {error}"
+            ) from error
+        self.drone_picture = pygame.transform.smoothscale(
+            drone_picture,
+            (drone_size, drone_size),
+        )
         self.drone_shadow = self.drone_picture.copy()
         self.drone_shadow.fill(
             (0, 0, 0, 100),
@@ -78,20 +92,6 @@ class Visualisation:
         )
         self._calculate_zone_positions()
         self.drone_positions = self._positions_for(self.current_zones)
-
-    def _load_drone_picture(self) -> pygame.Surface:
-        """Load the supplied PNG, with a simple built-in fallback."""
-        size = 24 if self.drone_count > 16 else 30
-        try:
-            picture = pygame.image.load(str(DRONE_IMAGE)).convert_alpha()
-        except (FileNotFoundError, pygame.error):
-            picture = pygame.Surface((64, 64), pygame.SRCALPHA)
-            pygame.draw.line(picture, (105, 201, 255), (18, 18), (46, 46), 7)
-            pygame.draw.line(picture, (105, 201, 255), (46, 18), (18, 46), 7)
-            for center in ((14, 14), (50, 14), (14, 50), (50, 50)):
-                pygame.draw.circle(picture, (31, 47, 68), center, 11, 3)
-            pygame.draw.ellipse(picture, (220, 241, 252), (23, 17, 18, 30))
-        return pygame.transform.smoothscale(picture, (size, size))
 
     def _calculate_zone_positions(self) -> None:
         """Fit the coordinates from config.txt inside the window."""
@@ -112,23 +112,14 @@ class Visualisation:
             self.zone_positions[name] = (x_position, y_position)
 
     @staticmethod
-    def _group_offsets(count: int, spacing: float) -> list[tuple[float, float]]:
-        """Arrange drones in a small square around the same zone."""
-        if count == 1:
-            return [(0.0, 0.0)]
-        columns = math.ceil(math.sqrt(count))
-        rows = math.ceil(count / columns)
-        offsets = []
-        for index in range(count):
-            column = index % columns
-            row = index // columns
-            offsets.append(
-                (
-                    (column - (columns - 1) / 2) * spacing,
-                    (row - (rows - 1) / 2) * spacing,
-                )
-            )
-        return offsets
+    def _group_offsets(
+            count: int, spacing: float) -> list[tuple[float, float]]:
+        """Arrange drones in one centered line around the same zone."""
+        first_offset = -((count - 1) * spacing) / 2
+        return [
+            (0.0, first_offset + index * spacing)
+            for index in range(count)
+        ]
 
     def _positions_for(
         self,
@@ -143,7 +134,7 @@ class Visualisation:
             else:
                 groups.setdefault(location, []).append(drone_id)
 
-        result = {}
+        result: dict[int, tuple[float, float]] = {}
         for zone, drone_ids in groups.items():
             center = self.zone_positions[zone]
             spacing = 27 if len(drone_ids) > 16 else 33
@@ -168,8 +159,8 @@ class Visualisation:
             offsets = self._group_offsets(len(drone_ids), 27)
             for drone_id, offset in zip(sorted(drone_ids), offsets):
                 result[drone_id] = (
-                    middle[0] + normal[0] * offset[0],
-                    middle[1] + normal[1] * offset[0],
+                    middle[0] + normal[0] * offset[1],
+                    middle[1] + normal[1] * offset[1],
                 )
         return result
 
@@ -196,6 +187,7 @@ class Visualisation:
 
     @staticmethod
     def _smooth(value: float) -> float:
+        """Return a smoothstep interpolation value between zero and one."""
         value = max(0.0, min(1.0, value))
         return value * value * (3 - 2 * value)
 
@@ -220,7 +212,8 @@ class Visualisation:
             self._start_next_turn()
 
     def _zone_type_color(self, zone: str) -> tuple[int, int, int]:
-        zone_type = self.metadata.get(zone, {}).get("zone", "normal")
+        """Return the display color associated with a zone type."""
+        zone_type = str(self.metadata.get(zone, {}).get("zone", "normal"))
         return ZONE_COLORS.get(zone_type, ZONE_COLORS["normal"])
 
     def _draw_configured_color(
@@ -242,7 +235,7 @@ class Visualisation:
             angle_size = 2 * math.pi / len(rainbow)
             for index, color in enumerate(rainbow):
                 start_angle = index * angle_size - math.pi / 2
-                points = [center]
+                points: list[tuple[float, float]] = [center]
                 for part in range(7):
                     angle = start_angle + angle_size * part / 6
                     points.append(
@@ -262,6 +255,7 @@ class Visualisation:
         pygame.draw.circle(self.screen, (5, 10, 18), center, radius, 2)
 
     def _draw_connections(self) -> None:
+        """Draw every configured connection behind the zones."""
         for connection in self.connections:
             first, second = connection.split("-")
             pygame.draw.line(
@@ -273,9 +267,12 @@ class Visualisation:
             )
 
     def _draw_zones(self) -> None:
+        """Draw zone type rings, configured colors, and labels."""
         for zone, position in self.zone_positions.items():
             center = (round(position[0]), round(position[1]))
-            zone_type = self.metadata.get(zone, {}).get("zone", "normal")
+            zone_type = str(
+                self.metadata.get(zone, {}).get("zone", "normal")
+            )
 
             # Large outer circle: zone type.
             pygame.draw.circle(self.screen, (5, 10, 18), center, 30)
@@ -287,7 +284,9 @@ class Visualisation:
             )
 
             # Small inner circle: the color written in config.txt.
-            configured_color = self.metadata.get(zone, {}).get("color", "white")
+            configured_color = str(
+                self.metadata.get(zone, {}).get("color", "white")
+            )
             self._draw_configured_color(center, 18, configured_color)
 
             if zone_type == "blocked":
@@ -307,10 +306,12 @@ class Visualisation:
                 )
 
             label = self.font.render(zone, True, TEXT_COLOR)
-            label_rectangle = label.get_rect(center=(center[0], center[1] + 42))
+            label_rectangle = label.get_rect(
+                center=(center[0], center[1] + 42))
             self.screen.blit(label, label_rectangle)
 
     def _draw_drones(self) -> None:
+        """Draw every drone image and its numeric badge."""
         for drone_id, position in self.drone_positions.items():
             center = (round(position[0]), round(position[1]))
             picture_rectangle = self.drone_picture.get_rect(center=center)
@@ -351,6 +352,7 @@ class Visualisation:
             x_position = text_rectangle.right + 30
 
     def draw(self) -> None:
+        """Draw and display one complete visualization frame."""
         self.screen.fill(BACKGROUND)
         self._draw_connections()
         self._draw_zones()
@@ -359,6 +361,7 @@ class Visualisation:
         pygame.display.flip()
 
     def handle_events(self) -> None:
+        """Handle quitting, Escape, and window resizing."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -376,77 +379,10 @@ class Visualisation:
                 self.animating = False
 
     def run(self) -> None:
+        """Run the visualization loop until the window is closed."""
         while self.running:
             self.handle_events()
             self.update()
             self.draw()
             self.clock.tick(60)
         pygame.quit()
-
-
-def load_project(config_path: Path) -> tuple:
-    """Run the original simulation once and return its saved movements."""
-    parser = Parse(str(config_path))
-    if parser.file_cleaner() == 1:
-        raise OSError(f"Cannot read {config_path}")
-
-    parsed = parser.parse_arguments()
-    if not isinstance(parsed, tuple) or len(parsed) != 7:
-        raise ValueError("The map contains an error")
-    nb_drones, zones, metadata, connections, link_metadata, end, start = parsed
-
-    finder = Dijkstra(
-        nb_drones=nb_drones,
-        zones=zones,
-        metadic=metadata,
-        connections=connections,
-        meta_connection_dic=link_metadata,
-        end=end,
-        start=start,
-    )
-    paths, path_costs, path_order = finder.multi_path_finding()
-    simulation = Simulation(
-        zones,
-        nb_drones,
-        paths,
-        path_costs,
-        path_order,
-        start,
-        end,
-        metadata,
-        link_metadata,
-    )
-    movement_history = simulation.start_simulation()
-    return (
-        zones,
-        metadata,
-        connections,
-        start,
-        end,
-        nb_drones,
-        movement_history,
-    )
-
-
-def main() -> int:
-    argument_parser = argparse.ArgumentParser()
-    argument_parser.add_argument(
-        "map",
-        nargs="?",
-        type=Path,
-        default=Path(__file__).with_name("config.txt"),
-    )
-    arguments = argument_parser.parse_args()
-
-    try:
-        project = load_project(arguments.map)
-        Visualisation(*project).run()
-    except (OSError, ValueError, pygame.error) as error:
-        print(f"Error: {error}")
-        pygame.quit()
-        return 1
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

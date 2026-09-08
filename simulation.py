@@ -1,34 +1,65 @@
+"""Simulate turn-by-turn drone movements through the zone graph."""
+
+from __future__ import annotations
+
+from typing import TypeAlias, TypedDict
+
+
+Coordinates: TypeAlias = tuple[int, int]
+Graph: TypeAlias = dict[str, Coordinates]
+ZoneMetadata: TypeAlias = dict[str, str | int]
+Metadata: TypeAlias = dict[str, ZoneMetadata]
+Paths: TypeAlias = dict[str, list[str]]
+PathCosts: TypeAlias = dict[str, float]
+Movement = TypedDict(
+    "Movement",
+    {"drone": int, "from": str, "to": str, "phase": str},
+)
+Transit = TypedDict("Transit", {"from": str, "to": str})
+
+
+class Request(TypedDict):
+    """Describe one drone's current zone and requested destination."""
+
+    drone: int
+    current: str
+    next: str | None
+
+
 class Drone:
+    """Track one drone's assigned path and current position."""
+
     def __init__(self, id: int, start: str, end: str) -> None:
+        """Initialize a drone at ``start`` with no assigned path."""
         # self.nb_drones = nb_drones
         self.drone_id = id
-        self.path = []
+        self.path: list[str] = []
         self.path_index = 0
         self.zone = start
         self.end = end
         self.finished = False
 
-
-    def get_path(self, path: list) -> None:
+    def get_path(self, path: list[str]) -> None:
+        """Assign a complete route to the drone."""
         self.path = path
 
-
-    def current_zone(self) -> str | None:
+    def current_zone(self) -> str:
+        """Return the zone currently occupied by the drone."""
         return self.zone
 
-
     def get_next_zone(self) -> str | None:
+        """Return the next zone on the route, if one remains."""
         if self.finished:
             return None
         if self.path_index + 1 >= len(self.path):
             return None
         return self.path[self.path_index + 1]
 
-
-    def move(self):
+    def move(self) -> None:
+        """Advance the drone by one position along its assigned path."""
         if self.is_finished():
             return
-        
+
         if self.path_index + 1 >= len(self.path):
             return
         self.path_index += 1
@@ -37,15 +68,27 @@ class Drone:
             self.finished = True
         return
 
-
     def is_finished(self) -> bool:
-        return self.finished 
-        
-
+        """Return whether the drone has reached the end hub."""
+        return self.finished
 
 
 class Simulation:
-    def __init__(self,graph: dict ,nb_drones: int ,paths: dict, path_cost: dict, paths_order: list, start: str, end: str, metadic: dict, meta_connections: dict) -> None:
+    """Schedule all drones while enforcing zone and link capacities."""
+
+    def __init__(
+        self,
+        graph: Graph,
+        nb_drones: int,
+        paths: Paths,
+        path_cost: PathCosts,
+        paths_order: list[str],
+        start: str,
+        end: str,
+        metadic: Metadata,
+        meta_connections: dict[str, int],
+    ) -> None:
+        """Store the graph, calculated paths, capacities, and endpoints."""
         self.nb_drones = nb_drones
         self.graph = graph
         self.paths = paths
@@ -56,22 +99,24 @@ class Simulation:
         self.metadic = metadic
         self.meta_connections = meta_connections
         self.drones: list[Drone] = []
-        self.requests : list[dict] = []
-        self.moves: list[dict] = []
-        self.empty: dict = {}
+        self.requests: list[Request] = []
+        self.moves: list[Request] = []
+        self.empty: dict[str, int] = {}
         # Each item contains the movements made during one simulation turn.
-        # The Pygame file reads this list only after the simulation is finished.
-        self.movement_history: list[list[dict]] = []
+        # The Pygame file reads this list only after the simulation is
+        # finished.
+        self.movement_history: list[list[Movement]] = []
 
     def initialize(self) -> None:
+        """Initialize the number of drones occupying every zone."""
         for zone in self.graph.keys():
-            self.empty[zone]= 0
+            self.empty[zone] = 0
 
         self.empty[self.start] = self.nb_drones
         return
-    
 
     def create_drones(self) -> None:
+        """Create drones and distribute them across selected paths."""
         cost = self.cost_of_turns()
 
         if cost == 0:
@@ -94,25 +139,25 @@ class Simulation:
             drone.get_path(self.paths[path_name])
             self.drones.append(drone)
 
-
-    def start_simulation(self):
+    def start_simulation(self) -> list[list[Movement]]:
+        """Run until every drone arrives, returning movements by turn."""
         self.create_drones()
         self.drones_info()
         self.initialize()
         self.movement_history.clear()
 
         turns = 0
-        in_transit = {}
-        reserved = {zone: 0 for zone in self.graph}
-        requests_by_drone = {
+        in_transit: dict[int, Transit] = {}
+        reserved: dict[str, int] = {zone: 0 for zone in self.graph}
+        requests_by_drone: dict[int, Request] = {
             request['drone']: request for request in self.requests
         }
 
         while not self.all_finished():
-            turn_movements = []
-            turn_output = []
-            link_usage = {}
-            arrived_drones = set()
+            turn_movements: list[Movement] = []
+            turn_output: list[str] = []
+            link_usage: dict[str, int] = {}
+            arrived_drones: set[int] = set()
 
             # A drone that entered a restricted connection during the previous
             # turn must arrive at its destination during this turn.
@@ -121,7 +166,6 @@ class Simulation:
                 destination = transit['to']
                 drone = self.drones[d_id]
                 request = requests_by_drone[d_id]
-            
 
                 if destination != self.end:
                     reserved[destination] -= 1
@@ -141,7 +185,6 @@ class Simulation:
                 })
                 turn_output.append(f"D{d_id}-{destination}")
 
-
             self.moves.clear()
             for request in self.requests:
                 d_id = request['drone']
@@ -154,7 +197,7 @@ class Simulation:
                 if current == self.end or next_zone is None:
                     continue
 
-                zone_type = self.metadic[next_zone]['zone']
+                zone_type = str(self.metadic[next_zone]['zone'])
                 if zone_type == 'blocked':
                     continue
 
@@ -171,7 +214,9 @@ class Simulation:
 
                 if next_zone != self.end:
                     zone_load = self.empty[next_zone] + reserved[next_zone]
-                    max_drones = self.metadic[next_zone]['max_drones']
+                    max_drones = int(
+                        self.metadic[next_zone]['max_drones']
+                    )
                     if zone_load >= max_drones:
                         continue
 
@@ -186,15 +231,16 @@ class Simulation:
                         self.empty[next_zone] += 1
 
             if not self.moves and not turn_movements:
-                print("Deadlock: no drone can move")
-                break
+                raise RuntimeError("Deadlock: no drone can move")
 
             for request in self.moves:
                 d_id = request['drone']
                 d = self.drones[d_id]
                 old_zone = request['current']
                 next_zone = request['next']
-                zone_type = self.metadic[next_zone]['zone']
+                if next_zone is None:
+                    continue
+                zone_type = str(self.metadic[next_zone]['zone'])
 
                 if zone_type == 'restricted':
                     in_transit[d_id] = {
@@ -225,48 +271,53 @@ class Simulation:
             self.movement_history.append(turn_movements)
             self.moves.clear()
 
-        print(turns)
+        print(f"Total turns {turns}")
         return self.movement_history
 
-
-    def drones_info(self):
+    def drones_info(self) -> None:
+        """Create the initial movement request for every drone."""
         for drone in self.drones:
             current = drone.current_zone()
             next_zone = drone.get_next_zone()
-            request = {
+            request: Request = {
                 'drone': drone.drone_id,
                 'current': current,
                 'next': next_zone
             }
             self.requests.append(request)
 
-
     def cost_of_turns(self) -> int:
+        """Choose the existing path-selection strategy code."""
         if len(self.paths_order) == 1:
             return 0
         if self.nb_drones % len(self.paths_order) == 0 and self.equal() == 0:
             return 1
-        if len(self.paths_order) >= 2 and self.path_cost[self.paths_order[0]] == self.path_cost[self.paths_order[1]]:
+        if (
+            len(self.paths_order) >= 2
+            and self.path_cost[self.paths_order[0]]
+            == self.path_cost[self.paths_order[1]]
+        ):
             return 2
-        if round(self.path_cost['shortpath']) + 10 <= round(self.path_cost[self.paths_order[1]]):
+        if round(self.path_cost['shortpath']) + \
+                10 <= round(self.path_cost[self.paths_order[1]]):
             return 3
         else:
             return 0
         # to be continued
-       
 
     def zone_has_capacity(self, zone: str) -> bool:
+        """Return whether ``zone`` can accept another drone."""
         if zone == self.end:
             return True
-        max_drones = self.metadic[zone]['max_drones']
+        max_drones = int(self.metadic[zone]['max_drones'])
         return self.empty[zone] < max_drones
-
 
     def connection_capacity(
         self,
         current: str,
         next_zone: str
     ) -> int:
+        """Return the configured capacity of a connection, or one."""
 
         direct = f"{current}-{next_zone}"
         reverse = f"{next_zone}-{current}"
@@ -279,37 +330,16 @@ class Simulation:
 
         return 1
 
-
-    def equal(self) -> int:
+    def equal(self) -> int | None:
+        """Return zero when every discovered path has the same cost."""
         lst = list(self.path_cost.values())
         if lst.count(lst[0]) == len(lst):
             return 0
-
+        return None
 
     def all_finished(self) -> bool:
+        """Return whether every drone has reached the end hub."""
         for drone in self.drones:
             if not drone.finished:
                 return False
         return True
-
-
-if __name__ == "__main__":
-    from parsing import Parse
-    from algorithm import Dijkstra
-    
-    x = Parse("config.txt")
-    if 1 == x.file_cleaner():
-        exit(1)
-    try:
-        nb_drones, zones, metadic, connections, meta_connection_dic, end, start = x.parse_arguments()
-    except Exception as e:
-        print(e)
-        exit(1)
-    if zones is None or meta_connection_dic is None or connections is None or meta_connection_dic is None:
-        exit(1)
-            # print(metadic)
-    p = Dijkstra(nb_drones=nb_drones,zones=zones,metadic=metadic,connections=connections,meta_connection_dic=meta_connection_dic, end=end, start=start)
-    paths, paths_cost, paths_order = p.multi_path_finding()
-    s = Simulation(zones, nb_drones, paths, paths_cost,paths_order, start, end, metadic, meta_connection_dic)
-    s.start_simulation()
-    exit(0)
