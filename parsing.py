@@ -39,7 +39,7 @@ class Parse:
         self.connections: list[str] = []
         self.meta_connection_dic: dict[str, int] = {}
 
-    def file_cleaner(self) -> int:
+    def file_cleaner(self) -> None:
         """Read the map and remove comments from every input line."""
         try:
             with open(self.file_name, 'r') as f:
@@ -54,9 +54,7 @@ class Parse:
                     self.lst.append(word)
         except PermissionError:
             print("The config.txt has no permission")
-            return 1
-        else:
-            return 0
+
 
     def parse_arguments(self) -> ParseSuccess:
         """Parse all cleaned lines or raise a line-numbered error."""
@@ -65,6 +63,7 @@ class Parse:
         nflag = 0
         space = 0
         try:
+            self.file_cleaner()
             for i in self.lst:
                 self.line_count += 1
                 if i == '':
@@ -239,8 +238,9 @@ class Parse:
             else:
                 if '-' in name:
                     raise ValueError("The '-' symbole can't be use in a name.")
-                self.meta_data_hubs(metadata, name.strip())
+                name = name.strip()
                 self.start = name
+                self.meta_data_hubs(metadata, name)
         else:
             raise ValueError(
                 "The 'end_hub' must just have : name x y [metadata].")
@@ -351,6 +351,15 @@ class Parse:
                         f"{raw_value} is not a valid type the valid types "
                         "are :['normal','restricted','priority','blocked']"
                     )
+                
+                if raw_value.strip() == 'blocked' and key == self.start:
+                    raise ValueError(
+                        f"The start point {self.start}"
+                        " should not have metadata 'zone=blocked'")
+                if raw_value.strip() == 'blocked' and key == self.end:
+                    raise ValueError(
+                        f"The end point {self.end}"
+                        " should not have metadata 'zone=blocked'")
             if name == 'color':
                 if c >= 1:
                     raise ValueError("the key 'color' is duplicate")

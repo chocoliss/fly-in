@@ -5,32 +5,10 @@ nb_drones: 8
 
 start_hub: start 0 4 [zone=normal color=white]
 
-hub: top_1 3 1 [zone=normal color=orange max_drones=2]
-hub: top_2 6 1 [zone=normal color=orange max_drones=2]
+hub: top_1 3 1 [zone=blocked   color=orange max_drones=2]
 
-hub: upper_1 3 3 [zone=normal color=yellow max_drones=2]
-hub: upper_2 6 3 [zone=normal color=yellow max_drones=2]
-
-hub: lower_1 3 5 [zone=normal color=green max_drones=2]
-hub: lower_2 6 5 [zone=normal color=green max_drones=2]
-
-hub: bottom_1 3 7 [zone=normal color=purple max_drones=2]
-hub: bottom_2 6 7 [zone=normal color=purple max_drones=2]
 
 end_hub: end 9 4 [zone=normal color=white]
 
 connection: start-top_1 [max_link_capacity=1]
-connection: top_1-top_2 [max_link_capacity=1]
-connection: top_2-end [max_link_capacity=1]
-
-connection: start-upper_1 [max_link_capacity=1]
-connection: upper_1-upper_2 [max_link_capacity=1]
-connection: upper_2-end [max_link_capacity=1]
-
-connection: start-lower_1 [max_link_capacity=1]
-connection: lower_1-lower_2 [max_link_capacity=1]
-connection: lower_2-end [max_link_capacity=1]
-
-connection: start-bottom_1 [max_link_capacity=1]
-connection: bottom_1-bottom_2 [max_link_capacity=1]
-connection: bottom_2-end [max_link_capacity=1]
+connection: top_1-end [max_link_capacity=1]

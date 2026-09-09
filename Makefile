@@ -1,17 +1,17 @@
 PYTHON := python3
 MAIN := main.py
-MAP ?= config.txt
 
 .PHONY: install run debug clean lint lint-strict
 
-install:
+
+install: 
 	$(PYTHON) -m pip install -r requirements.txt
 
 run:
-	$(PYTHON) $(MAIN) $(MAP)
+	$(PYTHON) $(MAIN)
 
 debug:
-	$(PYTHON) -m pdb $(MAIN) $(MAP)
+	$(PYTHON) -m pdb $(MAIN)
 
 clean:
 	find . -type f -name '*.py[co]' -delete

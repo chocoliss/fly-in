@@ -28,8 +28,6 @@ ProjectData: TypeAlias = tuple[
 def load_project(config_path: Path) -> ProjectData:
     """Run the original simulation once and return its saved movements."""
     parser = Parse(str(config_path))
-    if parser.file_cleaner() == 1:
-        raise OSError(f"Cannot read {config_path}")
 
     parsed = parser.parse_arguments()
     nb_drones, zones, metadata, connections, link_metadata, end, start = parsed
