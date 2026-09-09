@@ -55,7 +55,6 @@ class Parse:
         except PermissionError:
             print("The config.txt has no permission")
 
-
     def parse_arguments(self) -> ParseSuccess:
         """Parse all cleaned lines or raise a line-numbered error."""
         sflag = 0
@@ -351,7 +350,7 @@ class Parse:
                         f"{raw_value} is not a valid type the valid types "
                         "are :['normal','restricted','priority','blocked']"
                     )
-                
+
                 if raw_value.strip() == 'blocked' and key == self.start:
                     raise ValueError(
                         f"The start point {self.start}"

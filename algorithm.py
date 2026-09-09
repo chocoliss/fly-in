@@ -103,7 +103,7 @@ class Dijkstra:
 
     def multi_path_finding(
         self,
-    ) -> tuple[Paths, PathCosts, list[str]]:
+    ) -> tuple[Paths, PathCosts, list[str]] | tuple[None, None, None]:
         """Return the shortest route, alternatives, costs, and ordering."""
         path: list[str] = []
         names = [
@@ -127,7 +127,10 @@ class Dijkstra:
             self.unvisited,
             self.point_cost,
             self.previous_point)
-        if self.previous_point is None or self.end not in self.previous_point.keys():
+        if (
+            self.previous_point is None
+            or self.end not in self.previous_point.keys()
+        ):
             print("There is no path")
             return (
                 None,
