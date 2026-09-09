@@ -127,6 +127,12 @@ class Dijkstra:
             self.unvisited,
             self.point_cost,
             self.previous_point)
+        if self.previous_point is None or self.end not in self.previous_point.keys():
+            print("There is no path")
+            return (
+                None,
+                None,
+                None)
         short_path = self.path(self.start, self.end, self.previous_point)
         # self.print_path(self.start, self.end, self.previous_point, None)
         short_path = short_path[::-1]

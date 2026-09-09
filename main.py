@@ -42,6 +42,16 @@ def load_project(config_path: Path) -> ProjectData:
         start=start,
     )
     paths, path_costs, path_order = finder.multi_path_finding()
+    if paths is None:
+        return (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
     simulation = Simulation(
         zones,
         nb_drones,
@@ -78,6 +88,15 @@ def main() -> int:
 
     try:
         project = load_project(arguments.map)
+        if project is (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None):
+            raise ValueError("Nothing to visualize.")
         Visualisation(*project).run()
     except (OSError, RuntimeError, ValueError, pygame.error) as error:
         print(f"Error: {error}")

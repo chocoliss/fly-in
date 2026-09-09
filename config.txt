@@ -5,7 +5,7 @@ nb_drones: 8
 
 start_hub: start 0 4 [zone=normal color=white]
 
-hub: top_1 3 1 [zone=blocked   color=orange max_drones=2]
+hub: top_1 3 1 [zone=blocked color=orange max_drones=2]
 
 
 end_hub: end 9 4 [zone=normal color=white]
