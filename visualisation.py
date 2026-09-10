@@ -42,7 +42,6 @@ class Visualisation:
         self.screen = pygame.display.set_mode(WINDOW_SIZE, pygame.RESIZABLE)
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("dejavusans", 13)
-        self.id_font = pygame.font.SysFont("dejavusans", 8, bold=True)
 
         self.zones = zones
         self.metadata = metadata
@@ -311,21 +310,12 @@ class Visualisation:
             self.screen.blit(label, label_rectangle)
 
     def _draw_drones(self) -> None:
-        """Draw every drone image and its numeric badge."""
-        for drone_id, position in self.drone_positions.items():
+        """Draw every drone image without an identifier."""
+        for position in self.drone_positions.values():
             center = (round(position[0]), round(position[1]))
             picture_rectangle = self.drone_picture.get_rect(center=center)
             self.screen.blit(self.drone_shadow, picture_rectangle.move(2, 3))
             self.screen.blit(self.drone_picture, picture_rectangle)
-
-            badge_center = (
-                picture_rectangle.right - 1,
-                picture_rectangle.bottom - 1,
-            )
-            pygame.draw.circle(self.screen, (6, 11, 19), badge_center, 7)
-            pygame.draw.circle(self.screen, (105, 201, 255), badge_center, 6)
-            number = self.id_font.render(str(drone_id), True, (5, 10, 18))
-            self.screen.blit(number, number.get_rect(center=badge_center))
 
     def _draw_zone_legend(self) -> None:
         """Show the meaning of every zone color."""

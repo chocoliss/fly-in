@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import TypeAlias, cast
+from typing import TypeAlias
 
 import pygame
 
@@ -23,19 +23,9 @@ ProjectData: TypeAlias = tuple[
     int,
     list[list[Movement]],
 ]
-EmptyProjectData: TypeAlias = tuple[
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
-]
-ProjectResult: TypeAlias = ProjectData | EmptyProjectData
 
 
-def load_project(config_path: Path) -> ProjectResult:
+def load_project(config_path: Path) -> ProjectData:
     """Run the original simulation once and return its saved movements."""
     parser = Parse(str(config_path))
 
@@ -53,15 +43,7 @@ def load_project(config_path: Path) -> ProjectResult:
     )
     path_result = finder.multi_path_finding()
     if path_result[0] is None:
-        return (
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
+        raise ValueError("Nothing to visualize.")
     paths, path_costs, path_order = path_result
     simulation = Simulation(
         zones,
@@ -99,17 +81,7 @@ def main() -> int:
 
     try:
         project = load_project(arguments.map)
-        if project == (
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        ):
-            raise ValueError("Nothing to visualize.")
-        Visualisation(*cast(ProjectData, project)).run()
+        Visualisation(*project).run()
     except (OSError, RuntimeError, ValueError, pygame.error) as error:
         print(f"Error: {error}")
         pygame.quit()
