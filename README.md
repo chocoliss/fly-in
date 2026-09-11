@@ -124,10 +124,10 @@ of a restricted movement, the connection is displayed; the drone arrives in
 the restricted zone on the following turn.
 
 ```text
-D0-start-roof
-D0-roof D1-start-roof
-D0-goal D1-roof
-D1-goal
+D1-start-roof
+D1-roof D2-start-roof
+D1-goal D2-roof
+D2-goal
 Total turns 4
 ```
 

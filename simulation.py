@@ -264,7 +264,7 @@ class Simulation:
                         'to': d.current_zone(),
                         'phase': 'move'
                     })
-                    turn_output.append(f"D{d_id}-{d.current_zone()}")
+                    turn_output.append(f"D{d_id + 1}-{d.current_zone()}")
 
             turns += 1
             print(" ".join(turn_output))

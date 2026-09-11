@@ -73,16 +73,9 @@ class Dijkstra:
         self.initialization(start_point, point_cost, unvisited, visited)
         while unvisited:
             point = min(unvisited, key=lambda x: (point_cost[x]))
-            # print("the point is ", point)
-            # if len(self.points_available[point]) == 1:
-            #     check = self.points_available[point][0]
-            #     if check == blocked_path:
-            #         break
             if point_cost[point] == float("inf"):
-                # print(f"the point {point} is infinity")
                 break
             for available in self.points_available[point]:
-                # Available points are stored in self.points_available[point].
                 if point == start_point and blocked_path == available:
                     continue
                 if (
@@ -92,14 +85,11 @@ class Dijkstra:
                     continue
                 edge_cost = self.cost(available)
                 value = point_cost[point] + edge_cost
-                # value combines the current cost and the next edge cost.
                 if value < point_cost[available]:
                     point_cost[available] = value
                     previous_point[available] = point
             visited.append(point)
             unvisited.remove(point)
-        # print(point_cost)
-        # print(previous_point)
 
     def multi_path_finding(
         self,
@@ -137,7 +127,6 @@ class Dijkstra:
                 None,
                 None)
         short_path = self.path(self.start, self.end, self.previous_point)
-        # self.print_path(self.start, self.end, self.previous_point, None)
         short_path = short_path[::-1]
         self.paths['shortpath'] = short_path
         self.paths_cost['shortpath'] = self.point_cost[self.end]
@@ -170,33 +159,7 @@ class Dijkstra:
         self.order_paths = sorted(
             self.paths_cost,
             key=lambda x: self.paths_cost[x])
-        # print(self.paths)
-        # print(self.paths_cost)
-        # for element in self.order_paths:
-        #     self.print_path(self.start,self.end,None, self.paths[element])
         return self.paths, self.paths_cost, self.order_paths
-
-    # def check_paths(self):
-    #     length = len(self.order_paths)
-    #     if length == 1:
-    #         return
-    #     j = 0
-    #     while(j < length):
-    #         i = j + 1
-    #         while(i + 1 <= length):
-    #             first_path = self.paths[self.order_paths[j]]
-    #             second_path = self.paths[self.order_paths[i]]
-    #             if first_path != second_path:
-    #                 p1 = set(self.paths[self.order_paths[i]])
-    #                 p2 = set(self.paths[self.order_paths[j]])
-    #                 inter = p1.intersection(p2)
-    #                 if inter:
-    #                     print(inter)
-    #                 else:
-    #                     print("no inter")
-    #             i += 1
-    #         j += 1
-    #     return
 
     def cost(self, point: str) -> float:
         """Return the movement cost of entering ``point``."""

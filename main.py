@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 from typing import TypeAlias
 
@@ -69,18 +68,14 @@ def load_project(config_path: Path) -> ProjectData:
 
 
 def main() -> int:
-    """Run the project using the map supplied on the command line."""
-    argument_parser = argparse.ArgumentParser()
-    argument_parser.add_argument(
-        "map",
-        nargs="?",
-        type=Path,
-        default=Path(__file__).with_name("config.txt"),
-    )
-    arguments = argument_parser.parse_args()
-
+    """Run the project using config.txt"""
     try:
-        project = load_project(arguments.map)
+        file = Path(__file__).with_name("config.txt")
+        if not file.exists():
+            raise FileNotFoundError(
+                "File not found"
+            )
+        project = load_project(file)
         Visualisation(*project).run()
     except (OSError, RuntimeError, ValueError, pygame.error) as error:
         print(f"Error: {error}")
